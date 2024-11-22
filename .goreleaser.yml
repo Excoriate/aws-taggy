@@ -1,0 +1,93 @@
+# yaml-language-server: $schema=https://goreleaser.com/static/schema.json
+version: 2
+
+project_name: aws-taggy
+
+before:
+  hooks:
+    - go mod tidy
+    - go mod download
+
+builds:
+  - id: aws-taggy-cli
+    dir: cli
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - windows
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w 
+      - -X github.com/Excoriate/aws-taggy/cli/cmd.version={{.Version}}
+      - -X github.com/Excoriate/aws-taggy/cli/cmd.commit={{.Commit}}
+      - -X github.com/Excoriate/aws-taggy/cli/cmd.date={{.Date}}
+    main: .
+    binary: aws-taggy
+
+release:
+  prerelease: auto
+  draft: false
+
+nfpms:
+  - file_name_template: '{{ .ProjectName }}_{{ .Arch }}'
+    maintainer: alex_torres@outlook.com
+    homepage: https://github.com/Excoriate/aws-taggy
+    description: >-
+      AWS Taggy is a CLI tool for managing and querying AWS resources.
+    license: MIT
+    formats:
+      - deb
+      - rpm
+      - apk
+    bindir: /usr/bin
+    section: utils
+    contents:
+      - src: ./LICENSE
+        dst: /usr/share/doc/nfpm/copyright
+        file_info:
+          mode: 0644
+
+sboms:
+  - artifacts: archive
+
+brews:
+  - tap:
+      owner: Excoriate
+      name: homebrew-tap
+      branch: main
+    url_template: https://github.com/Excoriate/aws-taggy/releases/download/{{ .Tag }}/{{ .ArtifactName }}
+    commit_author:
+      name: Excoriate
+      email: alex_torres@outlook.com
+    folder: Formula
+    homepage: https://github.com/Excoriate/aws-taggy
+    description: >-
+      AWS Taggy is a CLI tool for managing and querying AWS resources.
+    license: MIT
+
+archives:
+  - wrap_in_directory: true
+    format_overrides:
+      - goos: windows
+        format: zip
+    name_template: '{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}'
+
+checksum:
+  name_template: checksums.txt
+  algorithm: sha256
+
+snapshot:
+  name_template: '{{ .Tag }}-next'
+
+changelog:
+  skip: true
+  sort: asc
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+      - '^*.md:'

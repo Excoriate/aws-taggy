@@ -1,0 +1,54 @@
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of the go coverage tool
+*.out
+coverage.out
+
+# Dependency directories
+vendor/
+go.sum
+
+# Build artifacts
+dist/
+bin/
+manpages/
+completions/
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Environment and local configuration
+.env
+.envrc
+
+# Temporary files
+tmp/
+temp/
+
+# Terraform and cloud provider files
+.terraform/
+*.tfstate
+*.tfstate.*
+.terragrunt-cache/
+
+# Misc
+.history/
+.cursorrules
+.AI*
+.aider*

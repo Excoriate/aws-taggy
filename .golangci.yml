@@ -1,0 +1,70 @@
+run:
+  # Timeout for analysis, like checking a single file
+  timeout: 5m
+  # Include test files
+  tests: true
+  # Directories to exclude
+  skip-dirs:
+    - vendor
+    - testdata
+    - pkg/mocks
+
+linters-settings:
+  govet:
+    check-shadowing: true
+  golangci-lint:
+    enable-all: true
+    disable:
+      - typecheck  # Conflicts with go vet
+      - goerr113   # Too strict for error handling
+      - wsl        # Too opinionated about whitespace
+      - nlreturn   # Too restrictive
+  gocyclo:
+    min-complexity: 15
+  maligned:
+    suggest-new: true
+  goconst:
+    min-len: 2
+    min-occurrences: 3
+  misspell:
+    locale: US
+  lll:
+    line-length: 120
+  gocritic:
+    enabled-tags:
+      - diagnostic
+      - experimental
+      - opinionated
+      - performance
+      - style
+    disabled-checks:
+      - whyNoLint
+
+linters:
+  enable:
+    - govet
+    - errcheck
+    - staticcheck
+    - gosimple
+    - unused
+    - gofmt
+    - goimports
+    - golint
+    - gocritic
+    - revive
+    - gosec
+    - bodyclose
+    - unconvert
+    - unparam
+  disable:
+    - maligned
+    - prealloc
+
+issues:
+  exclude-rules:
+    - path: _test\.go
+      linters:
+        - gocyclo
+        - errcheck
+        - dupl
+        - gosec 

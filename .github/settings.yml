@@ -1,0 +1,41 @@
+---
+repository:
+  name: aws-taggy
+  description: AWS Resource Tag Compliance CLI
+  topics: aws, cli, tagging, compliance, devops
+  default_branch: main
+  allow_squash_merge: true
+  allow_merge_commit: false
+  allow_rebase_merge: true
+  delete_branch_on_merge: true
+  has_projects: true
+  has_wiki: false
+
+labels:
+  - name: aws/resource-type
+    color: '#FF9900'
+    description: Specific AWS resource type tag issue
+  - name: compliance
+    color: '#2C8EBB'
+    description: Tag compliance and validation
+  - name: multi-account
+    color: '#7B42BC'
+    description: Multi-account AWS tag management
+  - name: performance
+    color: '#FFC300'
+    description: Performance optimization for large resource sets
+
+branches:
+  - name: main
+    protection:
+      required_pull_request_reviews:
+        required_approving_review_count: 1
+        dismiss_stale_reviews: true
+        require_code_owner_reviews: true
+      required_status_checks:
+        strict: true
+        contexts: 
+          - "lint"
+          - "test"
+          - "codecov"
+      enforce_admins: false

@@ -1,0 +1,55 @@
+# Pre-commit configuration for aws-taggy
+default_language_version:
+  golang: '1.21'
+
+exclude: >-
+  (?x)^(
+    vendor/|
+    .git/|
+    .cache/|
+    dist/|
+    manpages/|
+    completions/
+  )
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-added-large-files
+        args: ['--maxkb=500']
+      - id: check-merge-conflict
+repos:
+  - repo: https://github.com/tekwizely/pre-commit-golang
+    rev: v1.0.0-rc.1
+    hooks:
+      - id: go-build-mod
+      - id: go-test-mod
+      - id: go-vet-mod
+      - id: go-staticcheck-mod
+      - id: go-fmt
+      - id: go-fumpt
+      - id: go-imports
+      - id: go-lint
+      - id: golangci-lint-mod
+        args: [-c.golang-ci.yml]
+  - repo: local
+    hooks:
+      - id: test
+        name: Run tests
+        entry: just test
+        language: system
+        pass_filenames: false
+        always_run: true
+
+# Global settings
+minimum_pre_commit_version: 3.0.0
+
+# CI configuration
+ci:
+  autofix_commit_msg: 'style: auto-format code and hooks'
+  autoupdate_commit_msg: 'chore: update pre-commit hooks'
+  skip: []
