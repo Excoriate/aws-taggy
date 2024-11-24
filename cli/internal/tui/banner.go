@@ -3,8 +3,9 @@ package tui
 import (
 	"strings"
 
-	"github.com/Excoriate/aws-taggy/cli/internal/configuration"
 	"github.com/common-nighthawk/go-figure"
+
+	"github.com/Excoriate/aws-taggy/pkg/constants"
 )
 
 // GetBanner generates a stylized ASCII art banner for the application.
@@ -24,8 +25,8 @@ import (
 //   fmt.Println(banner) // Prints a large, styled banner with the app name
 func GetBanner() string {
 	// Convert the application name to uppercase for better visual impact
-	appNameUpper := strings.ToUpper(configuration.AppName)
-	
+	appNameUpper := strings.ToUpper(constants.AppName)
+
 	// Generate and return an ASCII art banner using the "doom" font style
 	return figure.NewFigure(appNameUpper, "doom", true).String()
 }

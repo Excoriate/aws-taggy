@@ -1,88 +1,157 @@
 ---
+# Configuration Version
+# Tracks the schema version of the tag compliance configuration
+# Enables future compatibility and potential schema evolution
 version: "1.0"
-# Global settings applied to all resources unless overridden
+
+# AWS Configuration
+aws:
+  # Region configuration can be 'all' or a list of specific regions
+  regions:
+    # Use 'all' to scan all regions, or specify a list of regions
+    # When 'all' is used, the tool will scan all supported AWS regions
+    # When a list is provided, only those specific regions will be scanned
+    mode: all  # Options: 'all' or 'specific'
+    list:
+      # Example of specific regions
+      # - us-east-1
+      # - us-west-2
+      # - eu-west-1
+
+  # Batch size for AWS API calls and resource processing
+  batch_size: 20  # Controls the number of resources processed in a single batch
+
+# Global Settings: Default tagging rules applied across all resources
+# These settings serve as a baseline for tag compliance and can be overridden by resource-specific configurations
 global:
+  # Global enablement flag for tag compliance scanning
+  # When set to true, the tag compliance process will be active for all resources
   enabled: true
-  batch_size: 20
+
+  # Global tag criteria applied to all resources unless specifically overridden
   tag_criteria:
+    # Minimum number of tags required for a resource to be considered compliant
+    # Ensures a baseline level of resource metadata
     minimum_required_tags: 3
+
+    # Tags that must be present on every resource to meet compliance
+    # These represent core metadata requirements across all resource types
     required_tags:
-      - Environment
-      - Owner
-      - Project
+      - Environment   # Identifies the deployment environment
+      - Owner         # Indicates the responsible team or individual
+      - Project       # Associates the resource with a specific project
+
+    # Tags that are explicitly forbidden to prevent potential misuse or security risks
     forbidden_tags:
-      - Temporary
-      - Test
+      - Temporary    # Prevents resources with temporary designations
+      - Test         # Blocks resources marked as test resources from compliance
+
+    # Specific tag values that must be present with exact matching
+    # Enforces additional governance and standardization rules
     specific_tags:
-      ComplianceLevel: high
-      ManagedBy: terraform
+      ComplianceLevel: high     # Ensures a high compliance standard
+      ManagedBy: terraform      # Indicates infrastructure-as-code management
+
+    # Default compliance level for resources not explicitly configured
+    # Provides a baseline governance standard
     compliance_level: high
 
-# Resource-specific configurations
+# Resource-Specific Configurations
+# Allows granular control and custom tagging rules for different AWS resource types
 resources:
+  # S3 Bucket Specific Tagging Rules
   s3:
+    # Enables tag compliance scanning specifically for S3 buckets
     enabled: true
-    batch_size: 10
+
+    # S3-specific tag criteria with stricter requirements
     tag_criteria:
+      # Higher minimum tag requirement for S3 buckets due to potential data sensitivity
       minimum_required_tags: 4
+
+      # Required tags for S3 buckets with additional data-related metadata
       required_tags:
-        - DataClassification
-        - BackupPolicy
-        - Environment
-        - Owner
+        - DataClassification  # Specifies data sensitivity level
+        - BackupPolicy        # Defines backup and retention strategy
+        - Environment         # Deployment environment
+        - Owner               # Resource ownership
+
+      # Forbidden tags to prevent risky bucket configurations
       forbidden_tags:
         - Temporary
         - Test
+
+      # Specific tag requirements for S3 buckets
       specific_tags:
-        EncryptionRequired: "true"
+        EncryptionRequired: "true"  # Mandates encryption for data protection
+
+      # Compliance level specific to S3 resources
       compliance_level: high
+
+    # Exclusion patterns for specific S3 buckets
+    # Allows exceptions for certain bucket types that require different management
     excluded_resources:
-      - pattern: terraform-state-*
+      - pattern: terraform-state-*     # Excludes Terraform state buckets
         reason: Terraform state buckets managed separately
-      - pattern: log-archive-*
+      - pattern: log-archive-*         # Excludes logging archive buckets
         reason: Logging buckets excluded from standard compliance
 
+  # EC2 Instance Specific Tagging Rules
   ec2:
     enabled: true
-    batch_size: 15
     tag_criteria:
       minimum_required_tags: 3
       required_tags:
-        - Application
-        - PatchGroup
-        - Environment
+        - Application   # Identifies the application running on the instance
+        - PatchGroup    # Indicates patch management group
+        - Environment   # Deployment environment
+
       forbidden_tags:
         - Temporary
         - Test
+
       specific_tags:
-        AutoStop: enabled
+        AutoStop: enabled  # Enables automatic instance stopping to manage costs
+
       compliance_level: standard
+
+    # Exclusion for specific EC2 instances
     excluded_resources:
       - pattern: bastion-*
         reason: Bastion hosts managed by security team
 
-# Compliance levels and their requirements
+# Compliance Levels Definition
+# Provides a flexible framework for defining different compliance standards
 compliance_levels:
+  # High Compliance Level: Strictest tagging requirements
   high:
     required_tags:
-      - SecurityLevel
-      - DataClassification
-      - Backup
-      - Owner
-      - CostCenter
+      - SecurityLevel        # Indicates security classification
+      - DataClassification   # Specifies data sensitivity
+      - Backup               # Defines backup strategy
+      - Owner                # Resource ownership
+      - CostCenter           # Enables precise cost allocation
+
     specific_tags:
-      SecurityApproved: "true"
-      MonitoringEnabled: "true"
+      SecurityApproved: "true"    # Additional security validation
+      MonitoringEnabled: "true"   # Ensures monitoring is active
+      ComplianceLevel: "high"     # Explicit high compliance designation
+
+  # Standard Compliance Level: Moderate tagging requirements
   standard:
     required_tags:
-      - Owner
-      - Project
-      - Environment
-    specific_tags:
-      MonitoringEnabled: "true"
+      - Owner        # Resource ownership
+      - Project      # Project association
+      - Environment  # Deployment environment
 
-# Tag validation rules
+    specific_tags:
+      MonitoringEnabled: "true"   # Ensures basic monitoring
+      ComplianceLevel: "standard" # Explicit standard compliance designation
+
+# Tag Validation Rules
+# Implements strict validation mechanisms for tag values
 tag_validation:
+  # Allowed values for specific tags to ensure consistency
   allowed_values:
     Environment:
       - production
@@ -98,21 +167,27 @@ tag_validation:
       - high
       - medium
       - low
-  pattern_rules:
-    CostCenter: ^[A-Z]{2}-[0-9]{4}$
-    ProjectCode: ^PRJ-[0-9]{5}$
-    Owner: ^[a-z0-9._%+-]+@company\.com$
 
-# Notification settings for non-compliant resources
+  # Regex pattern rules for specific tags to enforce formatting
+  pattern_rules:
+    CostCenter: ^[A-Z]{2}-[0-9]{4}$     # Format: Two uppercase letters, hyphen, four digits
+    ProjectCode: ^PRJ-[0-9]{5}$          # Format: PRJ- prefix, five digits
+    Owner: ^[a-z0-9._%+-]+@company\.com$ # Validates corporate email format
+
+# Notification Configuration
+# Manages reporting and alerting for non-compliant resources
 notifications:
+  # Slack notification settings
   slack:
     enabled: true
     channels:
-      high_priority: "compliance-alerts"
-      standard: "compliance-reports"
+      high_priority: "compliance-alerts"   # Channel for critical compliance issues
+      standard: "compliance-reports"       # Channel for standard compliance reports
+
+  # Email notification settings
   email:
     enabled: true
     recipients:
-      - cloud-team@company.com
-      - security-team@company.com
-    frequency: daily
+      - cloud-team@company.com      # Primary cloud infrastructure team
+      - security-team@company.com   # Security team for oversight
+    frequency: daily                # Reporting frequency

@@ -1,0 +1,234 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "type": "object",
+    "title": "AWS Tag Compliance Configuration Schema",
+    "description": "Schema for validating AWS tag compliance configuration files",
+    "required": ["version"],
+    "properties": {
+        "version": {
+            "type": "string",
+            "description": "Configuration file version",
+            "pattern": "^\\d+\\.\\d+$"
+        },
+        "global": {
+            "type": "object",
+            "description": "Global configuration settings",
+            "properties": {
+                "enabled": {"type": "boolean"},
+                "batch_size": {"type": "integer", "minimum": 1},
+                "tag_criteria": {
+                    "type": "object",
+                    "properties": {
+                        "minimum_required_tags": {"type": "integer", "minimum": 0},
+                        "required_tags": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "uniqueItems": true
+                        },
+                        "forbidden_tags": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "uniqueItems": true
+                        },
+                        "specific_tags": {
+                            "type": "object",
+                            "additionalProperties": {"type": "string"}
+                        },
+                        "compliance_level": {"type": "string"}
+                    },
+                    "required": ["minimum_required_tags"]
+                }
+            }
+        },
+        "resources": {
+            "type": "object",
+            "additionalProperties": {
+                "type": "object",
+                "properties": {
+                    "enabled": {"type": "boolean"},
+                    "tag_criteria": {
+                        "type": "object",
+                        "properties": {
+                            "minimum_required_tags": {"type": "integer", "minimum": 0},
+                            "required_tags": {
+                                "type": "array",
+                                "items": {"type": "string"},
+                                "uniqueItems": true
+                            },
+                            "forbidden_tags": {
+                                "type": "array",
+                                "items": {"type": "string"},
+                                "uniqueItems": true
+                            },
+                            "specific_tags": {
+                                "type": "object",
+                                "additionalProperties": {"type": "string"}
+                            },
+                            "compliance_level": {"type": "string"}
+                        },
+                        "required": ["minimum_required_tags"]
+                    },
+                    "excluded_resources": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "pattern": {"type": "string"},
+                                "reason": {"type": "string"}
+                            },
+                            "required": ["pattern"]
+                        }
+                    }
+                }
+            }
+        },
+        "compliance_levels": {
+            "type": "object",
+            "properties": {
+                "high": {
+                    "type": "object",
+                    "properties": {
+                        "required_tags": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "uniqueItems": true
+                        },
+                        "specific_tags": {
+                            "type": "object",
+                            "additionalProperties": {"type": "string"}
+                        }
+                    }
+                },
+                "medium": {
+                    "type": "object",
+                    "properties": {
+                        "required_tags": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "uniqueItems": true
+                        },
+                        "specific_tags": {
+                            "type": "object",
+                            "additionalProperties": {"type": "string"}
+                        }
+                    }
+                },
+                "low": {
+                    "type": "object",
+                    "properties": {
+                        "required_tags": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "uniqueItems": true
+                        },
+                        "specific_tags": {
+                            "type": "object",
+                            "additionalProperties": {"type": "string"}
+                        }
+                    }
+                },
+                "standard": {
+                    "type": "object",
+                    "properties": {
+                        "required_tags": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "uniqueItems": true
+                        },
+                        "specific_tags": {
+                            "type": "object",
+                            "additionalProperties": {"type": "string"}
+                        }
+                    }
+                }
+            },
+            "additionalProperties": false
+        },
+        "tag_validation": {
+            "type": "object",
+            "properties": {
+                "allowed_values": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "uniqueItems": true
+                    }
+                },
+                "pattern_rules": {
+                    "type": "object",
+                    "additionalProperties": {"type": "string"}
+                }
+            }
+        },
+        "notifications": {
+            "type": "object",
+            "properties": {
+                "slack": {
+                    "type": "object",
+                    "properties": {
+                        "enabled": {"type": "boolean"},
+                        "channels": {
+                            "type": "object",
+                            "additionalProperties": {"type": "string"}
+                        }
+                    }
+                },
+                "email": {
+                    "type": "object",
+                    "properties": {
+                        "enabled": {"type": "boolean"},
+                        "recipients": {
+                            "type": "array",
+                            "items": {
+                                "type": "string",
+                                "format": "email"
+                            },
+                            "uniqueItems": true
+                        },
+                        "frequency": {
+                            "type": "string",
+                            "enum": ["daily", "hourly", "weekly"]
+                        }
+                    }
+                }
+            }
+        },
+        "aws": {
+            "type": "object",
+            "properties": {
+                "regions": {
+                    "type": "object",
+                    "properties": {
+                        "mode": {
+                            "type": "string",
+                            "enum": ["all", "specific"]
+                        },
+                        "list": {
+                            "type": "array",
+                            "items": {
+                                "type": "string",
+                                "enum": [
+                                    "us-east-1", "us-east-2", "us-west-1", "us-west-2",
+                                    "ca-central-1",
+                                    "eu-central-1", "eu-west-1", "eu-west-2", "eu-west-3", "eu-north-1",
+                                    "ap-northeast-1", "ap-northeast-2", "ap-southeast-1", "ap-southeast-2",
+                                    "ap-south-1",
+                                    "sa-east-1",
+                                    "me-south-1",
+                                    "af-south-1"
+                                ]
+                            }
+                        }
+                    },
+                    "required": ["mode"]
+                },
+                "batch_size": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "description": "Number of resources to process in a single batch"
+                }
+            }
+        }
+    }
+} 

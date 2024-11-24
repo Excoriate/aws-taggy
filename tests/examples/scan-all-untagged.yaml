@@ -1,0 +1,108 @@
+---
+version: "1.0"
+# Configuration for comprehensive scanning of ALL untagged resources
+
+aws:
+  regions:
+    mode: all
+  batch_size: 100  # Large batch size for thorough scanning
+
+global:
+  enabled: true
+  tag_criteria:
+    minimum_required_tags: 1  # Explicitly set to 1 to catch ANY untagged resource
+    required_tags:
+      - Name  # Minimal tag requirement
+    compliance_level: high
+
+resources:
+  # Enable scanning for all major resource types
+  s3:
+    enabled: true
+    tag_criteria:
+      minimum_required_tags: 1
+      required_tags:
+        - Name
+      compliance_level: high
+
+  ec2:
+    enabled: true
+    tag_criteria:
+      minimum_required_tags: 1
+      required_tags:
+        - Name
+      compliance_level: high
+
+  rds:
+    enabled: true
+    tag_criteria:
+      minimum_required_tags: 1
+      required_tags:
+        - Name
+      compliance_level: high
+
+  lambda:
+    enabled: true
+    tag_criteria:
+      minimum_required_tags: 1
+      required_tags:
+        - Name
+      compliance_level: high
+
+  ebs:
+    enabled: true
+    tag_criteria:
+      minimum_required_tags: 1
+      required_tags:
+        - Name
+      compliance_level: high
+
+  elasticache:
+    enabled: true
+    tag_criteria:
+      minimum_required_tags: 1
+      required_tags:
+        - Name
+      compliance_level: high
+
+  # Add more resource types as needed
+  eks:
+    enabled: true
+    tag_criteria:
+      minimum_required_tags: 1
+      required_tags:
+        - Name
+      compliance_level: high
+
+  ecs:
+    enabled: true
+    tag_criteria:
+      minimum_required_tags: 1
+      required_tags:
+        - Name
+      compliance_level: high
+
+# Simplified compliance levels
+compliance_levels:
+  high:
+    required_tags:
+      - Name
+    specific_tags:
+      ComplianceStatus: "untagged-detected"
+
+# Minimal tag validation
+tag_validation:
+  pattern_rules:
+    Name: ^.+$  # Ensure Name tag is not empty
+
+# Notification configuration
+notifications:
+  slack:
+    enabled: true
+    channels:
+      high_priority: "untagged-resources-alert"
+  email:
+    enabled: true
+    recipients:
+      - cloud-team@company.com
+    frequency: daily

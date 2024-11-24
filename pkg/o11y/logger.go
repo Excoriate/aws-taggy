@@ -22,6 +22,17 @@ type Logger struct {
 	level  LogLevel
 }
 
+// LoggerInterface defines the contract for logging methods
+type LoggerInterface interface {
+	Debug(msg string, args ...any)
+	Info(msg string, args ...any)
+	Warn(msg string, args ...any)
+	Error(msg string, args ...any)
+}
+
+// Ensure Logger implements LoggerInterface
+var _ LoggerInterface = (*Logger)(nil)
+
 // NewLogger creates a new logger with specified options
 func NewLogger(output io.Writer, level LogLevel) *Logger {
 	var slogLevel slog.Level

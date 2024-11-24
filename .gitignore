@@ -50,5 +50,5 @@ temp/
 # Misc
 .history/
 .cursorrules
-.AI*
 .aider*
+AI*
