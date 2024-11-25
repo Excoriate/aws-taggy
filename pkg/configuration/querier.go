@@ -1,4 +1,4 @@
-package scannconfig
+package configuration
 
 import (
 	"fmt"
@@ -59,8 +59,8 @@ func (q *ConfigQuerier) GetComplianceLevels() (map[string]ComplianceLevel, error
 //   - The tag validation configuration
 //   - An error if tag validation configuration is not set
 func (q *ConfigQuerier) GetTagValidationConfig() (*TagValidation, error) {
-	if len(q.config.TagValidation.AllowedValues) == 0 && 
-	   len(q.config.TagValidation.PatternRules) == 0 {
+	if len(q.config.TagValidation.AllowedValues) == 0 &&
+		len(q.config.TagValidation.PatternRules) == 0 {
 		return nil, fmt.Errorf("tag validation configuration is not set")
 	}
 	return &q.config.TagValidation, nil
@@ -73,8 +73,8 @@ func (q *ConfigQuerier) GetTagValidationConfig() (*TagValidation, error) {
 //   - An error if notifications configuration is not set
 func (q *ConfigQuerier) GetNotificationsConfig() (*NotificationConfig, error) {
 	// Check if either Slack or Email notifications are enabled
-	if !q.config.Notifications.Slack.Enabled && 
-	   !q.config.Notifications.Email.Enabled {
+	if !q.config.Notifications.Slack.Enabled &&
+		!q.config.Notifications.Email.Enabled {
 		return nil, fmt.Errorf("notifications configuration is not set")
 	}
 	return &q.config.Notifications, nil
@@ -120,4 +120,38 @@ func (q *ConfigQuerier) GetComplianceLevelByName(levelName string) (*ComplianceL
 	}
 
 	return &complianceLevel, nil
+}
+
+// GetResourceRegions retrieves the regions for a specific resource type
+//
+// Parameters:
+//   - resourceType: The type of resource to retrieve (e.g., "s3", "ec2")
+//
+// Returns:
+//   - A list of regions for the specified resource type
+//   - An error if the resource type is not found
+func (q *ConfigQuerier) GetResourceRegions(resourceType string) ([]string, error) {
+	resource, err := q.GetResourceByType(resourceType)
+	if err != nil {
+		return nil, err
+	}
+
+	// If resource-specific regions are set, return those
+	if len(resource.Regions) > 0 {
+		return resource.Regions, nil
+	}
+
+	// If no resource-specific regions, return AWS config regions
+	awsConfig, err := q.GetAWSConfig()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get AWS configuration: %w", err)
+	}
+
+	// If AWS regions mode is 'all', return all valid AWS regions
+	if awsConfig.Regions.Mode == "all" {
+		return ValidAWSRegions(), nil
+	}
+
+	// Return the specific regions from AWS config
+	return awsConfig.Regions.List, nil
 }

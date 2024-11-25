@@ -1,4 +1,4 @@
-package scannconfig
+package configuration
 
 import (
 	"fmt"
@@ -55,7 +55,7 @@ func (l *ConfigLoader) LoadConfig(configPath string) (*TaggyScanConfig, error) {
 	}
 
 	// Normalize AWS configuration
-	NormalizeAWSConfig(&parsedCfg.AWS)
+	NormalizeAWSConfig(&parsedCfg.AWS, &parsedCfg.Global)
 
 	// Validate configuration content
 	configValidator, err := NewConfigValidator(parsedCfg)

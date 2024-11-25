@@ -1,4 +1,4 @@
-package scannconfig
+package configuration
 
 import (
 	"regexp"
@@ -41,6 +41,7 @@ type GlobalConfig struct {
 
 	// BatchSize specifies the default number of resources to process in a single batch
 	// If not set, a system-default batch size will be used
+	// This serves as a fallback/default for resource-specific and provider-specific batch sizes
 	BatchSize *int `yaml:"batch_size,omitempty"`
 
 	// TagCriteria defines the default tag validation rules for all resources
@@ -52,6 +53,10 @@ type GlobalConfig struct {
 type ResourceConfig struct {
 	// Enabled determines if this resource type is subject to tag inspection
 	Enabled bool `yaml:"enabled"`
+
+	// Regions is an optional list of regions to scan for this specific resource type
+	// If set, it overrides the global AWS regions configuration
+	Regions []string `yaml:"regions,omitempty"`
 
 	// TagCriteria defines tag validation rules specific to this resource type
 	TagCriteria TagCriteria `yaml:"tag_criteria"`
@@ -169,7 +174,7 @@ type AWSConfig struct {
 	Regions RegionsConfig `yaml:"regions"`
 
 	// BatchSize specifies the number of resources to process in a single batch
-	// If not set, a system-default batch size will be used
+	// If not set, it will fall back to the global batch size or a system default
 	BatchSize *int `yaml:"batch_size,omitempty"`
 }
 
@@ -184,17 +189,22 @@ type RegionsConfig struct {
 }
 
 // NormalizeAWSConfig ensures that AWS configuration has a valid configuration
-func NormalizeAWSConfig(cfg *AWSConfig) {
-	// If no AWS configuration is set, default to us-east-1
+func NormalizeAWSConfig(cfg *AWSConfig, globalCfg *GlobalConfig) {
+	// If no AWS batch size is specified, use global batch size
+	if cfg.BatchSize == nil {
+		if globalCfg != nil && globalCfg.BatchSize != nil {
+			cfg.BatchSize = globalCfg.BatchSize
+		} else {
+			// Default batch size if neither AWS nor global is set
+			defaultBatchSize := 20
+			cfg.BatchSize = &defaultBatchSize
+		}
+	}
+
+	// If no AWS regions configuration is set, default to us-east-1
 	if cfg.Regions.Mode == "" {
 		cfg.Regions.Mode = "specific"
 		cfg.Regions.List = []string{DefaultAWSRegion}
-	}
-
-	// Set default batch size if not specified
-	if cfg.BatchSize == nil {
-		defaultBatchSize := 20
-		cfg.BatchSize = &defaultBatchSize
 	}
 }
 

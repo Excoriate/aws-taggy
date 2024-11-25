@@ -1,4 +1,4 @@
-package scannconfig
+package configuration
 
 import (
 	"fmt"
@@ -58,10 +58,10 @@ func NewConfigValidator(cfg *TaggyScanConfig) (*ConfigValidator, error) {
 // It performs multiple checks to ensure the configuration file is valid and ready for processing.
 //
 // The validation steps include:
-//   1. Resolving the absolute path of the configuration file
-//   2. Checking if the configuration file exists
-//   3. Validating the file extension (expecting .yaml)
-//   4. Ensuring the configuration file is not empty
+//  1. Resolving the absolute path of the configuration file
+//  2. Checking if the configuration file exists
+//  3. Validating the file extension (expecting .yaml)
+//  4. Ensuring the configuration file is not empty
 //
 // Returns:
 //   - An error if any validation step fails, otherwise nil
@@ -142,8 +142,8 @@ func (v *ConfigFileValidator) ValidateConfigFileHasExtension() error {
 // ValidateVersion checks and validates the configuration version.
 //
 // This method performs two primary validation checks on the configuration version:
-//   1. Ensures that the version is not an empty string
-//   2. Verifies that the version matches the currently supported configuration version
+//  1. Ensures that the version is not an empty string
+//  2. Verifies that the version matches the currently supported configuration version
 //
 // The method checks against a predefined constant (SupportedConfigVersion) to ensure
 // compatibility with the expected configuration format.
@@ -151,8 +151,8 @@ func (v *ConfigFileValidator) ValidateConfigFileHasExtension() error {
 // Returns:
 //   - nil if the version is valid and supported
 //   - An error if:
-//     * The version is an empty string
-//     * The version does not match the supported version
+//   - The version is an empty string
+//   - The version does not match the supported version
 //
 // Example error scenarios:
 //   - "configuration version is missing"
@@ -177,8 +177,8 @@ func (c *ConfigValidator) ValidateVersion() error {
 // This method performs comprehensive validation on global configuration parameters,
 // ensuring that the global settings meet the required constraints before processing.
 // It checks two primary aspects of the global configuration:
-//   1. Batch Size: Ensures that if a batch size is specified, it is a positive number
-//   2. Tag Criteria: Validates the tag criteria using a separate validation method
+//  1. Batch Size: Ensures that if a batch size is specified, it is a positive number
+//  2. Tag Criteria: Validates the tag criteria using a separate validation method
 //
 // The method performs the following specific validations:
 //   - Checks that the global batch size (if set) is a positive integer
@@ -187,8 +187,8 @@ func (c *ConfigValidator) ValidateVersion() error {
 // Returns:
 //   - nil if all global configuration settings are valid
 //   - An error with a descriptive message if any validation fails, including:
-//     * Invalid batch size (non-positive number)
-//     * Invalid tag criteria
+//   - Invalid batch size (non-positive number)
+//   - Invalid tag criteria
 //
 // Example error scenarios:
 //   - "global batch size must be a positive number"
@@ -231,7 +231,7 @@ func (v *ConfigValidator) ValidateResourceConfigs() error {
 		// Validate compliance level
 		if resourceConfig.TagCriteria.ComplianceLevel != "" {
 			if !IsValidComplianceLevel(resourceConfig.TagCriteria.ComplianceLevel) {
-				return fmt.Errorf("invalid compliance level %s for resource type %s", 
+				return fmt.Errorf("invalid compliance level %s for resource type %s",
 					resourceConfig.TagCriteria.ComplianceLevel, resourceType)
 			}
 		}
@@ -245,9 +245,9 @@ func (v *ConfigValidator) ValidateResourceConfigs() error {
 //
 // This method validates the integrity and completeness of compliance levels defined in the configuration.
 // It ensures that:
-//   1. Each compliance level has a non-empty name
-//   2. Required tags within each compliance level are not empty
-//   3. Specific tags within each compliance level have non-empty keys and values
+//  1. Each compliance level has a non-empty name
+//  2. Required tags within each compliance level are not empty
+//  3. Specific tags within each compliance level have non-empty keys and values
 //
 // The validation process checks the following constraints:
 //   - Compliance level names must be non-empty strings
@@ -257,9 +257,9 @@ func (v *ConfigValidator) ValidateResourceConfigs() error {
 // Returns:
 //   - nil if all compliance levels pass validation
 //   - An error with a descriptive message if any validation fails, specifying:
-//     * Empty compliance level name
-//     * Empty required tag
-//     * Empty key or value in specific tags
+//   - Empty compliance level name
+//   - Empty required tag
+//   - Empty key or value in specific tags
 //
 // Example error scenarios:
 //   - "compliance level name cannot be empty"
@@ -267,7 +267,7 @@ func (v *ConfigValidator) ValidateResourceConfigs() error {
 //   - "empty key or value in specific tags of compliance level 'staging'"
 func (v *ConfigValidator) ValidateComplianceLevels() error {
 	validLevels := []string{"high", "medium", "low", "standard"}
-	
+
 	for levelName, level := range v.cfg.ComplianceLevels {
 		// Check if the level name is valid
 		found := false
@@ -278,7 +278,7 @@ func (v *ConfigValidator) ValidateComplianceLevels() error {
 			}
 		}
 		if !found {
-			return fmt.Errorf("invalid compliance level: %s. Must be one of %v", 
+			return fmt.Errorf("invalid compliance level: %s. Must be one of %v",
 				levelName, validLevels)
 		}
 
@@ -303,9 +303,9 @@ func (v *ConfigValidator) ValidateComplianceLevels() error {
 // ValidateTagValidationRules performs comprehensive validation of tag validation configuration.
 //
 // This method validates the integrity and completeness of tag validation rules, ensuring:
-//   1. Allowed values for each tag are non-empty
-//   2. Each allowed value is a non-empty string
-//   3. Pattern rules for each tag are non-empty
+//  1. Allowed values for each tag are non-empty
+//  2. Each allowed value is a non-empty string
+//  3. Pattern rules for each tag are non-empty
 //
 // The validation process checks the following constraints:
 //   - Tags must have at least one allowed value
@@ -315,9 +315,9 @@ func (v *ConfigValidator) ValidateComplianceLevels() error {
 // Returns:
 //   - nil if all tag validation rules pass validation
 //   - An error with a descriptive message if any validation fails, specifying:
-//     * Tags with no allowed values
-//     * Empty values in allowed values list
-//     * Empty pattern rules
+//   - Tags with no allowed values
+//   - Empty values in allowed values list
+//   - Empty pattern rules
 //
 // Example error scenarios:
 //   - "no allowed values specified for tag environment"
@@ -352,9 +352,9 @@ func (v *ConfigValidator) ValidateTagValidationRules() error {
 // ValidateNotifications performs comprehensive validation of notification configurations.
 //
 // This method validates the integrity and completeness of notification settings, ensuring:
-//   1. Slack notifications have at least one channel when enabled
-//   2. Email notifications have at least one recipient when enabled
-//   3. Email notification frequency is valid if specified
+//  1. Slack notifications have at least one channel when enabled
+//  2. Email notifications have at least one recipient when enabled
+//  3. Email notification frequency is valid if specified
 //
 // The validation process checks the following constraints:
 //   - Slack notifications require at least one channel when enabled
@@ -364,9 +364,9 @@ func (v *ConfigValidator) ValidateTagValidationRules() error {
 // Returns:
 //   - nil if all notification configurations pass validation
 //   - An error with a descriptive message if any validation fails, specifying:
-//     * Missing Slack channels when Slack notifications are enabled
-//     * Missing email recipients when email notifications are enabled
-//     * Invalid email notification frequency
+//   - Missing Slack channels when Slack notifications are enabled
+//   - Missing email recipients when email notifications are enabled
+//   - Invalid email notification frequency
 //
 // Example error scenarios:
 //   - "Slack notifications enabled but no channels specified"
@@ -408,7 +408,7 @@ func (v *ConfigValidator) ValidateNotifications() error {
 // ValidateAWSConfig validates AWS configuration
 func (v *ConfigValidator) ValidateAWSConfig() error {
 	// Ensure AWS configuration is normalized
-	NormalizeAWSConfig(&v.cfg.AWS)
+	NormalizeAWSConfig(&v.cfg.AWS, &v.cfg.Global)
 
 	// Validate regions mode
 	if v.cfg.AWS.Regions.Mode != "all" && v.cfg.AWS.Regions.Mode != "specific" {
@@ -484,6 +484,11 @@ func (v *ConfigValidator) Validate() error {
 		return fmt.Errorf("AWS configuration validation failed: %w", err)
 	}
 
+	// Validate resource-specific regions
+	if err := v.validateResourceRegions(); err != nil {
+		return fmt.Errorf("resource regions validation failed: %w", err)
+	}
+
 	return nil
 }
 
@@ -515,5 +520,28 @@ func (v *ConfigValidator) validateTagCriteria(criteria TagCriteria) error {
 			criteria.MinimumRequiredTags, len(criteria.RequiredTags))
 	}
 
+	return nil
+}
+
+// validateResourceRegions is a helper method to validate resource-specific regions
+// validateResourceRegions validates the resource-specific regions configuration for all resources.
+//
+// This method performs validation on the resource-specific regions configuration for all resources.
+// It ensures that if regions are specified for a resource, they are valid AWS regions.
+//
+// Returns:
+//   - An error if any resource-specific region configuration is invalid
+//   - nil if all resource-specific regions pass validation
+func (v *ConfigValidator) validateResourceRegions() error {
+	// Validate that if regions are specified for a resource, they are valid AWS regions
+	for resourceType, resourceConfig := range v.cfg.Resources {
+		if len(resourceConfig.Regions) > 0 {
+			for _, region := range resourceConfig.Regions {
+				if !IsValidRegion(region) {
+					return fmt.Errorf("invalid region %s specified for resource type %s", region, resourceType)
+				}
+			}
+		}
+	}
 	return nil
 }

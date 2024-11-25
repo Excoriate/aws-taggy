@@ -3,7 +3,7 @@ package cmd
 import (
 	"fmt"
 
-	"github.com/Excoriate/aws-taggy/pkg/scannconfig"
+	"github.com/Excoriate/aws-taggy/pkg/configuration"
 )
 
 // ValidateCmd represents the validate subcommand
@@ -14,7 +14,7 @@ type ValidateCmd struct {
 // Run method for ValidateCmd implements the configuration validation logic
 func (v *ValidateCmd) Run() error {
 	// Initialize configuration loader
-	loader := scannconfig.NewTaggyScanConfigLoader()
+	loader := configuration.NewTaggyScanConfigLoader()
 
 	// Attempt to load and validate the configuration
 	_, err := loader.LoadConfig(v.Config)

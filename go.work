@@ -1,6 +1,8 @@
 go 1.23.3
 
 use (
-	./
+	.
 	./cli
 )
+
+// replace github.com/Excoriate/aws-taggy v0.1.0 => ./pkg

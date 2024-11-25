@@ -1,4 +1,4 @@
-package scannconfig
+package configuration
 
 import (
 	"testing"

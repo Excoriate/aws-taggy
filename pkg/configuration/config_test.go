@@ -1,4 +1,4 @@
-package scannconfig
+package configuration
 
 import (
 	"testing"
@@ -40,13 +40,13 @@ func TestValidAWSRegions(t *testing.T) {
 
 	t.Run("Minimum Region Coverage", func(t *testing.T) {
 		minimumRegions := []string{
-			"us-east-1", "us-west-2", 
-			"eu-west-1", "ap-southeast-1", 
+			"us-east-1", "us-west-2",
+			"eu-west-1", "ap-southeast-1",
 			"sa-east-1", "af-south-1",
 		}
 
 		for _, region := range minimumRegions {
-			assert.Contains(t, regions, region, 
+			assert.Contains(t, regions, region,
 				"Region %s should be in the list of valid AWS regions", region)
 		}
 	})
@@ -76,7 +76,8 @@ func TestIsValidRegion(t *testing.T) {
 func TestNormalizeAWSConfig(t *testing.T) {
 	t.Run("Empty Configuration", func(t *testing.T) {
 		cfg := &AWSConfig{}
-		NormalizeAWSConfig(cfg)
+		globalCfg := &GlobalConfig{}
+		NormalizeAWSConfig(cfg, globalCfg)
 
 		assert.Equal(t, "specific", cfg.Regions.Mode)
 		assert.Len(t, cfg.Regions.List, 1)
@@ -88,14 +89,16 @@ func TestNormalizeAWSConfig(t *testing.T) {
 				Mode: "all",
 			},
 		}
-		NormalizeAWSConfig(cfg)
+		globalCfg := &GlobalConfig{}
+		NormalizeAWSConfig(cfg, globalCfg)
 
 		assert.Equal(t, "all", cfg.Regions.Mode)
 	})
 
 	t.Run("Default Batch Size", func(t *testing.T) {
 		cfg := &AWSConfig{}
-		NormalizeAWSConfig(cfg)
+		globalCfg := &GlobalConfig{}
+		NormalizeAWSConfig(cfg, globalCfg)
 
 		assert.NotNil(t, cfg.BatchSize)
 		assert.Equal(t, 20, *cfg.BatchSize)
@@ -106,21 +109,33 @@ func TestNormalizeAWSConfig(t *testing.T) {
 		cfg := &AWSConfig{
 			BatchSize: &batchSize,
 		}
-		NormalizeAWSConfig(cfg)
+		globalCfg := &GlobalConfig{}
+		NormalizeAWSConfig(cfg, globalCfg)
 
 		assert.NotNil(t, cfg.BatchSize)
 		assert.Equal(t, 50, *cfg.BatchSize)
 	})
-}
 
-func TestAWSConfigScenarios(t *testing.T) {
+	t.Run("Global Batch Size Used", func(t *testing.T) {
+		globalBatchSize := 30
+		cfg := &AWSConfig{}
+		globalCfg := &GlobalConfig{
+			BatchSize: &globalBatchSize,
+		}
+		NormalizeAWSConfig(cfg, globalCfg)
+
+		assert.NotNil(t, cfg.BatchSize)
+		assert.Equal(t, 30, *cfg.BatchSize)
+	})
+
 	t.Run("All Regions Mode", func(t *testing.T) {
 		cfg := &AWSConfig{
 			Regions: RegionsConfig{
 				Mode: "all",
 			},
 		}
-		NormalizeAWSConfig(cfg)
+		globalCfg := &GlobalConfig{}
+		NormalizeAWSConfig(cfg, globalCfg)
 
 		assert.Equal(t, "all", cfg.Regions.Mode)
 	})
@@ -132,7 +147,38 @@ func TestAWSConfigScenarios(t *testing.T) {
 				List: []string{"us-west-2", "eu-west-1"},
 			},
 		}
-		NormalizeAWSConfig(cfg)
+		globalCfg := &GlobalConfig{}
+		NormalizeAWSConfig(cfg, globalCfg)
+
+		assert.Equal(t, "specific", cfg.Regions.Mode)
+		assert.Len(t, cfg.Regions.List, 2)
+		assert.Contains(t, cfg.Regions.List, "us-west-2")
+		assert.Contains(t, cfg.Regions.List, "eu-west-1")
+	})
+}
+
+func TestAWSConfigScenarios(t *testing.T) {
+	t.Run("All Regions Mode", func(t *testing.T) {
+		cfg := &AWSConfig{
+			Regions: RegionsConfig{
+				Mode: "all",
+			},
+		}
+		globalCfg := &GlobalConfig{}
+		NormalizeAWSConfig(cfg, globalCfg)
+
+		assert.Equal(t, "all", cfg.Regions.Mode)
+	})
+
+	t.Run("Specific Regions Mode", func(t *testing.T) {
+		cfg := &AWSConfig{
+			Regions: RegionsConfig{
+				Mode: "specific",
+				List: []string{"us-west-2", "eu-west-1"},
+			},
+		}
+		globalCfg := &GlobalConfig{}
+		NormalizeAWSConfig(cfg, globalCfg)
 
 		assert.Equal(t, "specific", cfg.Regions.Mode)
 		assert.Len(t, cfg.Regions.List, 2)
