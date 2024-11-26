@@ -4,7 +4,9 @@ version: "1.0"
 
 aws:
   regions:
-    mode: all
+    mode: specific
+    regions:
+      - us-east-1
   batch_size: 100  # Large batch size for thorough scanning
 
 global:
@@ -33,54 +35,54 @@ resources:
         - Name
       compliance_level: high
 
-  rds:
-    enabled: true
-    tag_criteria:
-      minimum_required_tags: 1
-      required_tags:
-        - Name
-      compliance_level: high
+  # rds:
+  #   enabled: true
+  #   tag_criteria:
+  #     minimum_required_tags: 1
+  #     required_tags:
+  #       - Name
+  #     compliance_level: high
 
-  lambda:
-    enabled: true
-    tag_criteria:
-      minimum_required_tags: 1
-      required_tags:
-        - Name
-      compliance_level: high
+  # lambda:
+  #   enabled: true
+  #   tag_criteria:
+  #     minimum_required_tags: 1
+  #     required_tags:
+  #       - Name
+  #     compliance_level: high
 
-  ebs:
-    enabled: true
-    tag_criteria:
-      minimum_required_tags: 1
-      required_tags:
-        - Name
-      compliance_level: high
+  # ebs:
+  #   enabled: true
+  #   tag_criteria:
+  #     minimum_required_tags: 1
+  #     required_tags:
+  #       - Name
+  #     compliance_level: high
 
-  elasticache:
-    enabled: true
-    tag_criteria:
-      minimum_required_tags: 1
-      required_tags:
-        - Name
-      compliance_level: high
+  # elasticache:
+  #   enabled: true
+  #   tag_criteria:
+  #     minimum_required_tags: 1
+  #     required_tags:
+  #       - Name
+  #     compliance_level: high
 
-  # Add more resource types as needed
-  eks:
-    enabled: true
-    tag_criteria:
-      minimum_required_tags: 1
-      required_tags:
-        - Name
-      compliance_level: high
+  # # Add more resource types as needed
+  # eks:
+  #   enabled: true
+  #   tag_criteria:
+  #     minimum_required_tags: 1
+  #     required_tags:
+  #       - Name
+  #     compliance_level: high
 
-  ecs:
-    enabled: true
-    tag_criteria:
-      minimum_required_tags: 1
-      required_tags:
-        - Name
-      compliance_level: high
+  # ecs:
+  #   enabled: true
+  #   tag_criteria:
+  #     minimum_required_tags: 1
+  #     required_tags:
+  #       - Name
+  #     compliance_level: high
 
 # Simplified compliance levels
 compliance_levels:

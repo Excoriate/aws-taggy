@@ -3,52 +3,76 @@ package scanner
 import (
 	"context"
 	"fmt"
+	"sync"
 
 	"github.com/Excoriate/aws-taggy/pkg/cloud"
-	"github.com/Excoriate/aws-taggy/pkg/taggy"
 	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 )
 
-type ScannerAWS struct {
-	TaggyClient *taggy.TaggyClient
-	AWSRegion   string
-	awsClient   *aws.Config
+// AWSClientManager manages AWS clients for different regions
+type AWSClientManager struct {
+	mu      sync.RWMutex
+	clients map[string]*aws.Config
 }
 
-// NewScannerAWS creates a new AWS scanner instance, which is responsible for scanning and managing
-// AWS resources with tagging capabilities. This constructor initializes the scanner with the necessary
-// AWS configuration, client, and tagging client.
-//
-// Parameters:
-//   - ctx: A context.Context for managing request cancellation, timeouts, and passing request-scoped values.
-//   - tg: A pointer to the TaggyClient, which provides tagging-related functionality.
-//   - awsRegion: The AWS region where the scanner will operate.
-//
-// Returns:
-//   - *ScannerAWS: A configured AWS scanner instance.
-//   - error: An error if AWS configuration or client initialization fails.
-//
-// The function performs the following steps:
-//   1. Loads AWS client configuration from environment variables
-//   2. Creates an AWS SDK configuration
-//   3. Initializes a ScannerAWS struct with the provided parameters
-//
-// Example usage:
-//   ctx := context.Background()
-//   taggyClient := taggy.NewTaggyClient()
-//   scanner, err := NewScannerAWS(ctx, taggyClient, "us-west-2")
-func NewScannerAWS(ctx context.Context, tg *taggy.TaggyClient, awsRegion string) (*ScannerAWS, error) {
-	aCfg := cloud.NewAWSClientConfigFromEnv(awsRegion)
-	sdkCfg, err := cloud.NewAWSClient(ctx, aCfg)
-	if err != nil {
-		return nil, fmt.Errorf("failed to load AWS configuration: %w", err)
+// NewAWSClientManager creates a new AWSClientManager synchronously
+func NewAWSClientManager(regions []string) (*AWSClientManager, error) {
+	manager := &AWSClientManager{
+		clients: make(map[string]*aws.Config),
 	}
 
-	sc := &ScannerAWS{
-		TaggyClient: tg,
-		AWSRegion:   awsRegion,
-		awsClient:   sdkCfg,
+	// Synchronous client creation
+	for _, region := range regions {
+		// Create AWS client configuration for the region
+		awsClientConfig := cloud.NewAWSClientConfig(region)
+		cfg, err := awsClientConfig.LoadConfig(context.Background())
+		if err != nil {
+			return nil, fmt.Errorf("failed to create AWS client for region %s: %w", region, err)
+		}
+
+		manager.clients[region] = cfg
 	}
 
-	return sc, nil
+	return manager, nil
+}
+
+// GetS3Client retrieves an S3 client for a specific region
+func (m *AWSClientManager) GetS3Client(region string) (*s3.Client, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	cfg, exists := m.clients[region]
+	if !exists {
+		// If the specific region client doesn't exist, create it
+		awsClientConfig := cloud.NewAWSClientConfig(region)
+		newCfg, err := awsClientConfig.LoadConfig(context.Background())
+		if err != nil {
+			return nil, fmt.Errorf("failed to create AWS client for region %s: %w", region, err)
+		}
+
+		// Store the new client configuration
+		m.mu.RUnlock()
+		m.mu.Lock()
+		m.clients[region] = newCfg
+		m.mu.Unlock()
+		m.mu.RLock()
+
+		cfg = newCfg
+	}
+
+	return s3.NewFromConfig(*cfg), nil
+}
+
+// GetEC2Client retrieves an EC2 client for a specific region
+func (m *AWSClientManager) GetEC2Client(region string) (*aws.Config, error) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	cfg, exists := m.clients[region]
+	if !exists {
+		return nil, fmt.Errorf("no AWS client found for region %s", region)
+	}
+
+	return cfg, nil
 }

@@ -18,7 +18,8 @@ type RootCmd struct {
 	Debug   bool `help:"Enable debug mode"`
 
 	// Subcommands
-	Scan    ScanCmd    `cmd:"" help:"Scan AWS resources for tag compliance"`
+	Scan     ScanCmd     `cmd:"" help:"Scan AWS resources for tag compliance"`
+	Discover DiscoverCmd `cmd:"" help:"Discover AWS resources"`
 	Validate ValidateCmd `cmd:"" help:"Validate tag configurations"`
 }
 
@@ -27,6 +28,12 @@ func (r *RootCmd) Run() error {
 	if r.Version {
 		fmt.Printf("aws-taggy version %s\n", version)
 		return nil
+	}
+
+	// Add debug logging
+	if r.Debug {
+		fmt.Println("Debug mode enabled")
+		// You might want to set up more comprehensive debug logging here
 	}
 
 	// Default behavior if no subcommand is specified
