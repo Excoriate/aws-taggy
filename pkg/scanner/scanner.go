@@ -70,6 +70,17 @@ type Scanner interface {
 	//   - ScanResult containing discovered resources
 	//   - Any error encountered during scanning
 	Scan(ctx context.Context, resource Resource, config configuration.TaggyScanConfig) (*ScanResult, error)
+
+	// Fetch retrieves detailed information about a specific resource
+	// Parameters:
+	//   - ctx: Context for cancellation and timeout
+	//   - arn: The ARN of the resource to fetch
+	//   - config: The overall configuration for scanning
+	//
+	// Returns:
+	//   - ResourceMetadata containing the resource details
+	//   - Any error encountered during fetching
+	Fetch(ctx context.Context, arn string, config configuration.TaggyScanConfig) (*ResourceMetadata, error)
 }
 
 // NewScanner creates a new scanner for a specific resource type

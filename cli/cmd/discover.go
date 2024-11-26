@@ -16,6 +16,7 @@ import (
 type DiscoverCmd struct {
 	Service string `help:"AWS service to discover (e.g., s3, ec2)" required:"true"`
 	Region  string `help:"AWS region to discover resources in" default:"us-east-1"`
+	WithARN bool   `help:"Include ARN in the output"`
 }
 
 // Run method for DiscoverCmd implements the resource discovery logic
@@ -81,6 +82,7 @@ func (d *DiscoverCmd) discoverResources(client *taggy.TaggyClient, logger *o11y.
 		Region   string
 		HasTags  bool
 		TagCount int
+		ARN      string
 	}
 
 	var totalResources, resourcesWithTags int
@@ -96,6 +98,7 @@ func (d *DiscoverCmd) discoverResources(client *taggy.TaggyClient, logger *o11y.
 				Region:   region,
 				HasTags:  len(resource.Tags) > 0,
 				TagCount: len(resource.Tags),
+				ARN:      resource.Details.ARN,
 			})
 			if len(resource.Tags) > 0 {
 				resourcesWithTags++
@@ -104,15 +107,26 @@ func (d *DiscoverCmd) discoverResources(client *taggy.TaggyClient, logger *o11y.
 		}
 	}
 
+	columns := []tui.Column{
+		{Title: "Resource", Key: "ID", Width: 30, Flexible: true},
+		{Title: "Region", Key: "Region", Width: 15},
+		{Title: "Has Tags", Key: "HasTags", Width: 10},
+		{Title: "Tag Count", Key: "TagCount", Width: 10},
+	}
+
+	if d.WithARN {
+		columns = append(columns, tui.Column{
+			Title:    "ARN",
+			Key:      "ARN",
+			Width:    50,
+			Flexible: true,
+		})
+	}
+
 	tableOpts := tui.TableOptions{
 		Title: fmt.Sprintf("🏷️  %s Resource Discovery (Total: %d, Tagged: %d)",
 			d.Service, totalResources, resourcesWithTags),
-		Columns: []tui.Column{
-			{Title: "Resource", Key: "ID", Width: 30, Flexible: true},
-			{Title: "Region", Key: "Region", Width: 15},
-			{Title: "Has Tags", Key: "HasTags", Width: 10},
-			{Title: "Tag Count", Key: "TagCount", Width: 10},
-		},
+		Columns:         columns,
 		FlexibleColumns: true,
 	}
 

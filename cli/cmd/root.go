@@ -21,6 +21,7 @@ type RootCmd struct {
 	Scan     ScanCmd     `cmd:"" help:"Scan AWS resources for tag compliance"`
 	Discover DiscoverCmd `cmd:"" help:"Discover AWS resources"`
 	Validate ValidateCmd `cmd:"" help:"Validate tag configurations"`
+	Fetch    FetchCmd    `cmd:"" help:"Fetch specific resource details"`
 }
 
 // Run implements the main logic for the root command

@@ -227,3 +227,76 @@ func (s *S3Scanner) getBucketTags(ctx context.Context, client *s3.Client, bucket
 
 	return tags, nil
 }
+
+// Fetch implements the Scanner interface for retrieving specific S3 bucket details
+func (s *S3Scanner) Fetch(ctx context.Context, arn string, config configuration.TaggyScanConfig) (*ResourceMetadata, error) {
+	// Parse bucket name from ARN
+	bucketName, err := ParseS3ARN(arn)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse S3 ARN: %w", err)
+	}
+
+	// Get the bucket's region first
+	s3Client, err := s.ClientManager.GetS3Client("us-east-1") // Start with default region
+	if err != nil {
+		return nil, fmt.Errorf("failed to create S3 client: %w", err)
+	}
+
+	// Get bucket location
+	locationOutput, err := s3Client.GetBucketLocation(ctx, &s3.GetBucketLocationInput{
+		Bucket: aws.String(bucketName),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to get bucket location: %w", err)
+	}
+
+	// Get the correct region
+	bucketRegion := string(locationOutput.LocationConstraint)
+	if bucketRegion == "" {
+		bucketRegion = "us-east-1"
+	}
+
+	// Get client for the correct region if different
+	if bucketRegion != "us-east-1" {
+		s3Client, err = s.ClientManager.GetS3Client(bucketRegion)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create S3 client for region %s: %w", bucketRegion, err)
+		}
+	}
+
+	// Get bucket tags
+	tags, err := s.getBucketTags(ctx, s3Client, bucketName)
+	if err != nil {
+		s.Logger.Warn("Failed to get bucket tags", "bucket", bucketName, "error", err)
+		tags = make(map[string]string)
+	}
+
+	// Create resource metadata
+	resourceMeta := &ResourceMetadata{
+		ID:           bucketName,
+		Type:         "s3",
+		Provider:     "aws",
+		Region:       bucketRegion,
+		Tags:         tags,
+		DiscoveredAt: time.Now(),
+	}
+
+	// Populate extended details
+	resourceMeta.Details.ARN = arn
+	resourceMeta.Details.Name = bucketName
+	resourceMeta.Details.Properties = map[string]interface{}{
+		"region": bucketRegion,
+	}
+
+	return resourceMeta, nil
+}
+
+// ParseS3ARN extracts bucket name from S3 ARN
+func ParseS3ARN(arn string) (string, error) {
+	// ARN format: arn:aws:s3:::bucket-name
+	parts := strings.Split(arn, ":")
+	if len(parts) != 6 {
+		return "", fmt.Errorf("invalid S3 ARN format: %s", arn)
+	}
+	return parts[5], nil
+}
