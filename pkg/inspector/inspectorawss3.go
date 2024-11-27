@@ -1,10 +1,9 @@
-package scanner
+package inspector
 
 import (
 	"context"
 	"fmt"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/Excoriate/aws-taggy/pkg/configuration"
@@ -40,122 +39,113 @@ func NewS3Scanner(regions []string) (*S3Scanner, error) {
 }
 
 // Scan discovers S3 buckets and their metadata across specified regions
-func (s *S3Scanner) Scan(ctx context.Context, resource Resource, config configuration.TaggyScanConfig) (*ScanResult, error) {
+func (s *S3Scanner) Scan(ctx context.Context, config configuration.TaggyScanConfig) (*ScanResult, error) {
 	s.Logger.Info("Starting S3 resource scanning",
-		"resource_type", resource.GetType(),
 		"regions", s.Regions)
 
 	result := &ScanResult{
 		StartTime: time.Now(),
-		Region:    resource.GetRegion(),
+		Region:    s.Regions[0],
 	}
 
-	// Scan buckets across all specified regions concurrently
-	var scanWg sync.WaitGroup
-	resultChan := make(chan []ResourceMetadata, len(s.Regions))
-	errorChan := make(chan error, len(s.Regions))
+	// Create async scanner with default config
+	scanner := NewAsyncResourceScanner(DefaultScanConfig())
 
-	for _, region := range s.Regions {
-		scanWg.Add(1)
-		go func(r string) {
-			defer scanWg.Done()
-
-			s.Logger.Debug("Scanning S3 buckets in region", "region", r)
-
-			// Get S3 client for this region
-			s3Client, err := s.ClientManager.GetS3Client(r)
-			if err != nil {
-				errorMsg := fmt.Sprintf("failed to get S3 client for region %s", r)
-				s.Logger.Error(errorMsg, "error", err)
-				errorChan <- fmt.Errorf(errorMsg+": %w", err)
-				return
-			}
-
-			// List buckets in this region
-			buckets, err := s.listBuckets(ctx, s3Client)
-			if err != nil {
-				errorMsg := fmt.Sprintf("failed to list buckets in region %s", r)
-				s.Logger.Error(errorMsg, "error", err)
-				errorChan <- fmt.Errorf(errorMsg+": %w", err)
-				return
-			}
-
-			s.Logger.Info("Discovered S3 buckets",
-				"region", r,
-				"bucket_count", len(buckets))
-
-			// Convert buckets to ResourceMetadata
-			regionResources := make([]ResourceMetadata, 0, len(buckets))
-			for _, bucket := range buckets {
-				// Fetch bucket tags first
-				tags, err := s.getBucketTags(ctx, s3Client, *bucket.Name)
-				if err != nil {
-					errorMsg := fmt.Sprintf("failed to get tags for bucket %s", *bucket.Name)
-					s.Logger.Warn(errorMsg, "error", err)
-					result.Errors = append(result.Errors,
-						fmt.Sprintf("%s in region %s: %v", errorMsg, r, err))
-					tags = make(map[string]string) // Initialize empty tags map on error
-				} else {
-					s.Logger.Debug("Bucket tags retrieved",
-						"bucket", *bucket.Name,
-						"tag_count", len(tags))
-				}
-
-				resourceMeta := ResourceMetadata{
-					ID:           *bucket.Name,
-					Type:         "s3",
-					Provider:     "aws",
-					Region:       r,
-					DiscoveredAt: time.Now(),
-					Tags:         tags,
-					RawResponse:  bucket,
-				}
-
-				// Populate extended details
-				resourceMeta.Details.ARN = fmt.Sprintf("arn:aws:s3:::%s", *bucket.Name)
-				resourceMeta.Details.Name = *bucket.Name
-				resourceMeta.Details.Properties = map[string]interface{}{
-					"creation_date": bucket.CreationDate,
-				}
-
-				regionResources = append(regionResources, resourceMeta)
-			}
-
-			resultChan <- regionResources
-		}(region)
-	}
-
-	// Wait for all region scans to complete
-	scanWg.Wait()
-	close(resultChan)
-	close(errorChan)
-
-	// Collect results and errors
-	var scanErrors []error
-	for err := range errorChan {
-		scanErrors = append(scanErrors, err)
-	}
-
-	for regionResources := range resultChan {
-		result.Resources = append(result.Resources, regionResources...)
-	}
-
-	// Check for any errors
-	if len(scanErrors) > 0 {
-		var errorMessages []string
-		for _, err := range scanErrors {
-			errorMessages = append(errorMessages, err.Error())
+	// Define the resource discoverer function
+	discoverer := func(ctx context.Context, region string) ([]interface{}, error) {
+		// Get S3 client for this region
+		s3Client, err := s.ClientManager.GetS3Client(region)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get S3 client: %w", err)
 		}
 
-		s.Logger.Error("S3 scanning encountered errors",
-			"error_count", len(scanErrors))
+		// List buckets
+		buckets, err := s.listBuckets(ctx, s3Client)
+		if err != nil {
+			return nil, fmt.Errorf("failed to list buckets: %w", err)
+		}
 
-		return nil, fmt.Errorf("S3 scanning failed with %d errors:\n%s",
-			len(scanErrors),
-			strings.Join(errorMessages, "\n"))
+		// Convert to interface slice
+		resources := make([]interface{}, len(buckets))
+		for i, bucket := range buckets {
+			resources[i] = bucket
+		}
+
+		return resources, nil
 	}
 
-	result.TotalResources = len(result.Resources)
+	// Define the resource processor function
+	processor := func(ctx context.Context, resource interface{}) (ResourceMetadata, error) {
+		bucket := resource.(types.Bucket)
+
+		// Get S3 client for initial region
+		s3Client, err := s.ClientManager.GetS3Client(s.Regions[0])
+		if err != nil {
+			return ResourceMetadata{}, fmt.Errorf("failed to get S3 client: %w", err)
+		}
+
+		// Get bucket location
+		locationOutput, err := s3Client.GetBucketLocation(ctx, &s3.GetBucketLocationInput{
+			Bucket: bucket.Name,
+		})
+		if err != nil {
+			return ResourceMetadata{}, fmt.Errorf("failed to get bucket location: %w", err)
+		}
+
+		// Determine bucket region
+		bucketRegion := string(locationOutput.LocationConstraint)
+		if bucketRegion == "" {
+			bucketRegion = "us-east-1"
+		}
+
+		// Get client for correct region if different
+		if bucketRegion != s.Regions[0] {
+			s3Client, err = s.ClientManager.GetS3Client(bucketRegion)
+			if err != nil {
+				return ResourceMetadata{}, fmt.Errorf("failed to get region-specific S3 client: %w", err)
+			}
+		}
+
+		// Fetch bucket tags
+		tags, err := s.getBucketTags(ctx, s3Client, *bucket.Name)
+		if err != nil {
+			s.Logger.Warn("Failed to get bucket tags",
+				"bucket", *bucket.Name,
+				"error", err)
+			tags = make(map[string]string)
+		}
+
+		// Create resource metadata
+		metadata := ResourceMetadata{
+			ID:           *bucket.Name,
+			Type:         "s3",
+			Provider:     "aws",
+			Region:       bucketRegion,
+			DiscoveredAt: time.Now(),
+			Tags:         tags,
+			RawResponse:  bucket,
+		}
+
+		// Populate extended details
+		metadata.Details.ARN = fmt.Sprintf("arn:aws:s3:::%s", *bucket.Name)
+		metadata.Details.Name = *bucket.Name
+		metadata.Details.Properties = map[string]interface{}{
+			"creation_date": bucket.CreationDate,
+			"region":        bucketRegion,
+		}
+
+		return metadata, nil
+	}
+
+	// Perform the async scan
+	resources, err := scanner.ScanResources(ctx, s.Regions, discoverer, processor)
+	if err != nil {
+		return nil, fmt.Errorf("failed to scan S3 resources: %w", err)
+	}
+
+	// Update result with scanned resources
+	result.Resources = resources
+	result.TotalResources = len(resources)
 	result.EndTime = time.Now()
 	result.Duration = result.EndTime.Sub(result.StartTime)
 
@@ -216,6 +206,12 @@ func (s *S3Scanner) getBucketTags(ctx context.Context, client *s3.Client, bucket
 				"bucket", bucketName,
 				"error", err)
 			return nil, fmt.Errorf("bucket requires specific endpoint: %w", err)
+		}
+		// If NoSuchTagSet, return empty tags map (bucket exists but has no tags)
+		if strings.Contains(err.Error(), "NoSuchTagSet") {
+			s.Logger.Debug("No tags found for bucket",
+				"bucket", bucketName)
+			return make(map[string]string), nil
 		}
 		return nil, fmt.Errorf("failed to get bucket tags: %w", err)
 	}

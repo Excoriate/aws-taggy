@@ -1,7 +1,9 @@
 package configuration
 
 import (
+	"fmt"
 	"regexp"
+	"strings"
 )
 
 // TaggyScanConfig represents the overall configuration structure for the AWS tag management tool.
@@ -101,12 +103,109 @@ type CaseRule struct {
 	Message string   `yaml:"message"`
 }
 
+// CaseValidationMode defines the strictness of case validation
+type CaseValidationMode string
+
+const (
+	CaseValidationStrict  CaseValidationMode = "strict"  // Exact case matching
+	CaseValidationRelaxed CaseValidationMode = "relaxed" // Case-insensitive matching
+)
+
+// CaseSensitivityConfig defines case sensitivity rules for a specific tag
+type CaseSensitivityConfig struct {
+	Mode CaseValidationMode `yaml:"mode"`
+}
+
+// CaseTransformationConfig defines case transformation rules
+type CaseTransformationConfig struct {
+}
+
 // TagValidation contains all tag validation rules
 type TagValidation struct {
-	AllowedValues map[string][]string       `yaml:"allowed_values"`
-	PatternRules  map[string]string         `yaml:"pattern_rules"`
-	CaseRules     map[string]CaseRule       `yaml:"case_rules"`
+	AllowedValues map[string][]string `yaml:"allowed_values"`
+	PatternRules  map[string]string   `yaml:"pattern_rules"`
+
+	// Advanced case validation
+	CaseSensitivity map[string]CaseSensitivityConfig `yaml:"case_sensitivity"`
+
+	// Maintain backwards compatibility with old case rules
+	CaseRules map[string]CaseRule `yaml:"case_rules,omitempty"`
+
+	// New case transformation rules
+	CaseTransformations map[string]CaseTransformationConfig `yaml:"case_transformations,omitempty"`
+
 	compiledRules map[string]*regexp.Regexp // Internal use for compiled patterns
+}
+
+// ValidateTagCase validates a tag value against case sensitivity rules
+func (tv *TagValidation) ValidateTagCase(tagName, value string) error {
+	// Check case sensitivity configuration
+	if caseSensitivity, exists := tv.CaseSensitivity[tagName]; exists {
+		switch caseSensitivity.Mode {
+		case CaseValidationStrict:
+			// Check if the original value matches the allowed values
+			if !tv.isValueAllowed(tagName, value) {
+				return fmt.Errorf("tag %s value %s does not match strict case requirements", tagName, value)
+			}
+		case CaseValidationRelaxed:
+			// Perform case-insensitive matching
+			found := false
+			for _, allowedValue := range tv.AllowedValues[tagName] {
+				if strings.EqualFold(allowedValue, value) {
+					found = true
+					break
+				}
+			}
+			if !found {
+				return fmt.Errorf("tag %s value %s is not in the allowed values", tagName, value)
+			}
+		}
+	}
+
+	// Apply case transformations if specified
+	if caseRule, exists := tv.CaseRules[tagName]; exists {
+		var transformedValue string
+		switch caseRule.Case {
+		case CaseLowercase:
+			transformedValue = strings.ToLower(value)
+		case CaseUppercase:
+			transformedValue = strings.ToUpper(value)
+		case CaseMixed:
+			// For mixed case, validate against pattern if provided
+			if caseRule.Pattern != "" {
+				matched, err := regexp.MatchString(caseRule.Pattern, value)
+				if err != nil {
+					return fmt.Errorf("invalid mixed case pattern for tag %s: %w", tagName, err)
+				}
+				if !matched {
+					return fmt.Errorf(caseRule.Message)
+				}
+			}
+			transformedValue = value
+		}
+
+		// Validate the transformed value
+		if transformedValue != value {
+			return fmt.Errorf(caseRule.Message)
+		}
+	}
+
+	return nil
+}
+
+// Helper method to check if a value is in the allowed values
+func (tv *TagValidation) isValueAllowed(tagName, value string) bool {
+	allowedValues, exists := tv.AllowedValues[tagName]
+	if !exists {
+		return true // No restrictions if no allowed values defined
+	}
+
+	for _, allowedValue := range allowedValues {
+		if allowedValue == value {
+			return true
+		}
+	}
+	return false
 }
 
 // NotificationConfig manages the notification settings for reporting

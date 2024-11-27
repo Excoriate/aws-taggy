@@ -627,3 +627,93 @@ func (v *ConfigValidator) ValidateTag(tagName, tagValue string) error {
 
 	return nil
 }
+
+// ValidateTagValidation performs comprehensive validation of tag validation rules
+func (v *ConfigValidator) ValidateTagValidation() error {
+	// Validate allowed values
+	if err := v.validateAllowedValues(); err != nil {
+		return err
+	}
+
+	// Validate case sensitivity configuration
+	if err := v.validateCaseSensitivity(); err != nil {
+		return err
+	}
+
+	// Validate case transformation rules
+	if err := v.validateCaseRules(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// validateAllowedValues checks that allowed values are valid and non-empty
+func (v *ConfigValidator) validateAllowedValues() error {
+	for tagName, values := range v.cfg.TagValidation.AllowedValues {
+		if len(values) == 0 {
+			return fmt.Errorf("no allowed values specified for tag %s", tagName)
+		}
+
+		// Ensure no duplicate values
+		uniqueValues := make(map[string]bool)
+		for _, value := range values {
+			if value == "" {
+				return fmt.Errorf("empty value not allowed in allowed values for tag %s", tagName)
+			}
+			if uniqueValues[value] {
+				return fmt.Errorf("duplicate value %s found for tag %s", value, tagName)
+			}
+			uniqueValues[value] = true
+		}
+	}
+	return nil
+}
+
+// validateCaseSensitivity checks the case sensitivity configuration
+func (v *ConfigValidator) validateCaseSensitivity() error {
+	for tagName, caseSensitivity := range v.cfg.TagValidation.CaseSensitivity {
+		// Validate case sensitivity mode
+		switch caseSensitivity.Mode {
+		case CaseValidationStrict, CaseValidationRelaxed:
+			// Valid modes
+		default:
+			return fmt.Errorf("invalid case validation mode %s for tag %s", caseSensitivity.Mode, tagName)
+		}
+
+		// Ensure the tag has allowed values defined if using strict mode
+		if caseSensitivity.Mode == CaseValidationStrict {
+			if _, exists := v.cfg.TagValidation.AllowedValues[tagName]; !exists {
+				return fmt.Errorf("strict case validation requires allowed values for tag %s", tagName)
+			}
+		}
+	}
+	return nil
+}
+
+// validateCaseRules checks the case transformation rules
+func (v *ConfigValidator) validateCaseRules() error {
+	for tagName, caseRule := range v.cfg.TagValidation.CaseRules {
+		// Validate case type
+		switch caseRule.Case {
+		case CaseLowercase, CaseUppercase, CaseMixed:
+			// Valid case types
+		default:
+			return fmt.Errorf("invalid case transformation %s for tag %s", caseRule.Case, tagName)
+		}
+
+		// For mixed case, validate pattern if provided
+		if caseRule.Case == CaseMixed && caseRule.Pattern != "" {
+			_, err := regexp.Compile(caseRule.Pattern)
+			if err != nil {
+				return fmt.Errorf("invalid mixed case pattern for tag %s: %w", tagName, err)
+			}
+		}
+
+		// Ensure message is provided
+		if caseRule.Message == "" {
+			return fmt.Errorf("case rule for tag %s must have a message", tagName)
+		}
+	}
+	return nil
+}

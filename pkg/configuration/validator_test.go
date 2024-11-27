@@ -638,3 +638,158 @@ func TestValidateTagCase(t *testing.T) {
 		})
 	}
 }
+
+func TestValidateTagValidation(t *testing.T) {
+	t.Run("Valid Case Validation Configuration", func(t *testing.T) {
+		cfg := &TaggyScanConfig{
+			TagValidation: TagValidation{
+				AllowedValues: map[string][]string{
+					"Environment":   {"Production", "Staging", "Development"},
+					"SecurityLevel": {"High", "Medium", "Low"},
+				},
+				CaseSensitivity: map[string]CaseSensitivityConfig{
+					"Environment":   {Mode: CaseValidationStrict},
+					"SecurityLevel": {Mode: CaseValidationRelaxed},
+				},
+				CaseRules: map[string]CaseRule{
+					"Environment": {
+						Case:    CaseLowercase,
+						Message: "must be lowercase",
+					},
+					"SecurityLevel": {
+						Case:    CaseUppercase,
+						Message: "must be uppercase",
+					},
+				},
+			},
+		}
+
+		validator, err := NewConfigValidator(cfg)
+		require.NoError(t, err)
+
+		err = validator.ValidateTagValidation()
+		assert.NoError(t, err)
+	})
+
+	t.Run("Invalid Allowed Values", func(t *testing.T) {
+		testCases := []struct {
+			name        string
+			allowedVals map[string][]string
+			expectedErr string
+		}{
+			{
+				name: "Empty Allowed Values",
+				allowedVals: map[string][]string{
+					"Environment": {},
+				},
+				expectedErr: "no allowed values specified for tag Environment",
+			},
+			{
+				name: "Duplicate Allowed Values",
+				allowedVals: map[string][]string{
+					"Environment": {"Production", "Production"},
+				},
+				expectedErr: "duplicate value Production found for tag Environment",
+			},
+			{
+				name: "Empty Allowed Value",
+				allowedVals: map[string][]string{
+					"Environment": {"", "Production"},
+				},
+				expectedErr: "empty value not allowed in allowed values for tag Environment",
+			},
+		}
+
+		for _, tc := range testCases {
+			t.Run(tc.name, func(t *testing.T) {
+				cfg := &TaggyScanConfig{
+					TagValidation: TagValidation{
+						AllowedValues: tc.allowedVals,
+					},
+				}
+
+				validator, err := NewConfigValidator(cfg)
+				require.NoError(t, err)
+
+				err = validator.ValidateTagValidation()
+				assert.EqualError(t, err, tc.expectedErr)
+			})
+		}
+	})
+
+	t.Run("Invalid Case Sensitivity", func(t *testing.T) {
+		testCases := []struct {
+			name            string
+			caseSensitivity map[string]CaseSensitivityConfig
+			allowedValues   map[string][]string
+			expectedErr     string
+		}{
+			{
+				name: "Invalid Case Validation Mode",
+				caseSensitivity: map[string]CaseSensitivityConfig{
+					"Environment": {Mode: "invalid"},
+				},
+				expectedErr: "invalid case validation mode invalid for tag Environment",
+			},
+			{
+				name: "Strict Mode Without Allowed Values",
+				caseSensitivity: map[string]CaseSensitivityConfig{
+					"Environment": {Mode: CaseValidationStrict},
+				},
+				expectedErr: "strict case validation requires allowed values for tag Environment",
+			},
+		}
+
+		for _, tc := range testCases {
+			t.Run(tc.name, func(t *testing.T) {
+				cfg := &TaggyScanConfig{
+					TagValidation: TagValidation{
+						CaseSensitivity: tc.caseSensitivity,
+						AllowedValues:   tc.allowedValues,
+					},
+				}
+
+				validator, err := NewConfigValidator(cfg)
+				require.NoError(t, err)
+
+				err = validator.ValidateTagValidation()
+				assert.EqualError(t, err, tc.expectedErr)
+			})
+		}
+	})
+
+	t.Run("Invalid Case Transformation Rules", func(t *testing.T) {
+		testCases := []struct {
+			name        string
+			caseRules   map[string]CaseRule
+			expectedErr string
+		}{
+			{
+				name: "Invalid Case Transformation",
+				caseRules: map[string]CaseRule{
+					"environment": {
+						Case:    "invalid",
+						Message: "must be lowercase",
+					},
+				},
+				expectedErr: "invalid case transformation invalid for tag environment",
+			},
+		}
+
+		for _, tc := range testCases {
+			t.Run(tc.name, func(t *testing.T) {
+				cfg := &TaggyScanConfig{
+					TagValidation: TagValidation{
+						CaseRules: tc.caseRules,
+					},
+				}
+
+				validator, err := NewConfigValidator(cfg)
+				require.NoError(t, err)
+
+				err = validator.ValidateTagValidation()
+				assert.EqualError(t, err, tc.expectedErr)
+			})
+		}
+	})
+}

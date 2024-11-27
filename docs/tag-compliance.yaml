@@ -168,6 +168,32 @@ tag_validation:
       - medium
       - low
 
+  # Case sensitivity configuration
+  case_sensitivity:
+    Environment:
+      mode: strict   # Enforce exact case matching
+    DataClassification:
+      mode: relaxed  # Allow case-insensitive matching
+
+  # Case transformation rules
+  case_rules:
+    Environment:
+      case: lowercase
+      message: "Environment tag must be lowercase"
+    SecurityLevel:
+      case: lowercase
+      message: "SecurityLevel tag must be lowercase"
+    CostCenter:
+      case: uppercase
+      message: "CostCenter tag must be uppercase"
+    ProjectCode:
+      case: mixed
+      pattern: "^[A-Z]+-[0-9]+$"
+      message: "ProjectCode must follow pattern: UPPERCASE-numbers"
+    Owner:
+      case: lowercase
+      message: "Owner tag must be lowercase"
+
   # Regex pattern rules for specific tags to enforce formatting
   pattern_rules:
     CostCenter: ^[A-Z]{2}-[0-9]{4}$     # Format: Two uppercase letters, hyphen, four digits

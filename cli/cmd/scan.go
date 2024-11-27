@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/Excoriate/aws-taggy/cli/internal/tui"
-	"github.com/Excoriate/aws-taggy/pkg/scanner"
+	"github.com/Excoriate/aws-taggy/pkg/inspector"
 	"github.com/Excoriate/aws-taggy/pkg/taggy"
 )
 
@@ -35,7 +35,7 @@ func (s *ScanCmd) startScan(client *taggy.TaggyClient) error {
 	fmt.Println("🔍 Performing full AWS resource tag compliance scan...")
 
 	// Create a scanner manager
-	scannerManager, err := scanner.NewScannerManager(*client.Config())
+	scannerManager, err := inspector.NewScannerManager(*client.Config())
 	if err != nil {
 		return fmt.Errorf("failed to create scanner manager: %w", err)
 	}

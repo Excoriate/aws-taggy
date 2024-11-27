@@ -8,9 +8,8 @@ import (
 	"github.com/Excoriate/aws-taggy/cli/internal/output"
 	"github.com/Excoriate/aws-taggy/cli/internal/tui"
 	"github.com/Excoriate/aws-taggy/pkg/configuration"
+	"github.com/Excoriate/aws-taggy/pkg/inspector"
 	"github.com/Excoriate/aws-taggy/pkg/o11y"
-	"github.com/Excoriate/aws-taggy/pkg/scanner"
-	"github.com/Excoriate/aws-taggy/pkg/taggy"
 )
 
 // FetchCmd represents the fetch command and its subcommands
@@ -55,21 +54,15 @@ func (t *TagsCmd) Run() error {
 		},
 	}
 
-	// Initialize client
-	client, err := taggy.NewWithConfig(&config)
+	// Create inspector for the specific service
+	inspectorClient, err := inspector.New(t.Service, config)
 	if err != nil {
-		return fmt.Errorf("failed to initialize client: %w", err)
-	}
-
-	// Create scanner for the specific service
-	scanner, err := scanner.NewScanner(t.Service, *client.Config())
-	if err != nil {
-		return fmt.Errorf("failed to create scanner: %w", err)
+		return fmt.Errorf("failed to create inspector: %w", err)
 	}
 
 	// Fetch resource details
 	ctx := context.Background()
-	resource, err := scanner.Fetch(ctx, t.ARN, *client.Config())
+	resource, err := inspectorClient.Fetch(ctx, t.ARN, config)
 	if err != nil {
 		return fmt.Errorf("failed to fetch resource: %w", err)
 	}
@@ -150,18 +143,13 @@ func (i *InfoCmd) Run() error {
 		},
 	}
 
-	client, err := taggy.NewWithConfig(&config)
+	inspectorClient, err := inspector.New(i.Service, config)
 	if err != nil {
-		return fmt.Errorf("failed to initialize client: %w", err)
-	}
-
-	scanner, err := scanner.NewScanner(i.Service, *client.Config())
-	if err != nil {
-		return fmt.Errorf("failed to create scanner: %w", err)
+		return fmt.Errorf("failed to create inspector: %w", err)
 	}
 
 	ctx := context.Background()
-	resource, err := scanner.Fetch(ctx, i.ARN, *client.Config())
+	resource, err := inspectorClient.Fetch(ctx, i.ARN, config)
 	if err != nil {
 		return fmt.Errorf("failed to fetch resource: %w", err)
 	}
