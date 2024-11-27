@@ -149,9 +149,9 @@ func (d *DiscoverCmd) discoverResources(client *taggy.TaggyClient, logger *o11y.
 	// Check if we found any resources after filtering
 	if len(resourceRows) == 0 {
 		if d.Untagged {
-			logger.Info(fmt.Sprintf("No untagged %s resources found", d.Service))
+			logger.Info(fmt.Sprintf("No untagged %s resources found in region %s", d.Service, d.Region))
 		} else {
-			logger.Info(fmt.Sprintf("No %s resources found", d.Service))
+			logger.Info(fmt.Sprintf("No %s resources found in region %s", d.Service, d.Region))
 		}
 		return nil
 	}

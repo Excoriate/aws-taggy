@@ -33,16 +33,23 @@ type Inspector interface {
 
 // New creates a new inspector for a specific resource type
 func New(resourceType string, cfg configuration.TaggyScanConfig) (Inspector, error) {
+	// Validate regions
 	regions := cfg.AWS.Regions.List
 	if len(regions) == 0 {
 		return nil, fmt.Errorf("no regions specified for resource type %s", resourceType)
 	}
 
+	// Normalize resource type
+	resourceType = configuration.NormalizeResourceType(resourceType)
+
+	// Create inspector based on resource type
 	switch resourceType {
 	case constants.ResourceTypeS3:
 		return NewS3Scanner(regions)
 	case constants.ResourceTypeEC2:
 		return NewEC2Scanner(regions)
+	case constants.ResourceTypeVPC:
+		return NewVPCScanner(regions)
 	default:
 		return nil, fmt.Errorf("unsupported resource type: %s", resourceType)
 	}
@@ -66,17 +73,26 @@ func NewScannerManager(config configuration.TaggyScanConfig) (*ScannerManager, e
 
 	// Iterate through configured resources and create scanners
 	for resourceType, resourceConfig := range config.Resources {
+		// Skip disabled resources
 		if !resourceConfig.Enabled {
 			logger.Info(fmt.Sprintf("Resource type %s is disabled, skipping", resourceType))
 			continue
 		}
 
-		// Create a scanner for each enabled resource type
+		// Validate resource type
+		if err := configuration.IsSupportedAWSResource(resourceType); err != nil {
+			errorMsg := fmt.Sprintf("Resource type %s validation failed: %v", resourceType, err)
+			logger.Error(errorMsg)
+			errors = append(errors, errorMsg)
+			continue
+		}
+
+		// Create scanner
 		scanner, err := New(resourceType, config)
 		if err != nil {
-			errorMsg := fmt.Sprintf("Failed to create scanner for %s", resourceType)
-			logger.Error(errorMsg, "error", err)
-			errors = append(errors, fmt.Sprintf("%s: %v", errorMsg, err))
+			errorMsg := fmt.Sprintf("Failed to create scanner for %s: %v", resourceType, err)
+			logger.Error(errorMsg)
+			errors = append(errors, errorMsg)
 			continue
 		}
 
@@ -97,7 +113,7 @@ func (sm *ScannerManager) Scan(ctx context.Context) error {
 	var wg sync.WaitGroup
 	var mu sync.Mutex
 	errChan := make(chan error, len(sm.scanners))
-	sm.errors = []string{} // Initialize errors slice
+	sm.errors = []string{} // Reset errors slice
 
 	for resourceType, scanner := range sm.scanners {
 		wg.Add(1)
@@ -118,8 +134,9 @@ func (sm *ScannerManager) Scan(ctx context.Context) error {
 				return
 			}
 
+			// Store results by region for consistent access
 			mu.Lock()
-			sm.results[rt] = result
+			sm.results[result.Region] = result
 			mu.Unlock()
 		}(resourceType, scanner)
 	}

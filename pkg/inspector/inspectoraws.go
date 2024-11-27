@@ -8,6 +8,7 @@ import (
 	"github.com/Excoriate/aws-taggy/pkg/cloud"
 	"github.com/Excoriate/aws-taggy/pkg/o11y"
 	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/ec2"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 )
 
@@ -200,14 +201,28 @@ func (m *AWSClientManager) GetS3Client(region string) (*s3.Client, error) {
 }
 
 // GetEC2Client retrieves an EC2 client for a specific region
-func (m *AWSClientManager) GetEC2Client(region string) (*aws.Config, error) {
+func (m *AWSClientManager) GetEC2Client(region string) (*ec2.Client, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
 	cfg, exists := m.clients[region]
 	if !exists {
-		return nil, fmt.Errorf("no AWS client found for region %s", region)
+		// If the specific region client doesn't exist, create it
+		awsClientConfig := cloud.NewAWSClientConfig(region)
+		newCfg, err := awsClientConfig.LoadConfig(context.Background())
+		if err != nil {
+			return nil, fmt.Errorf("failed to create AWS client for region %s: %w", region, err)
+		}
+
+		// Store the new client configuration
+		m.mu.RUnlock()
+		m.mu.Lock()
+		m.clients[region] = newCfg
+		m.mu.Unlock()
+		m.mu.RLock()
+
+		cfg = newCfg
 	}
 
-	return cfg, nil
+	return ec2.NewFromConfig(*cfg), nil
 }

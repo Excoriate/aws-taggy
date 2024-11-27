@@ -3,6 +3,7 @@ package constants
 const (
 	ResourceTypeS3         = "s3"
 	ResourceTypeEC2        = "ec2"
+	ResourceTypeVPC        = "vpc"
 	ResourceTypeRDS        = "rds"
 	ResourceTypeLambda     = "lambda"
 	ResourceTypeEKS        = "eks"
