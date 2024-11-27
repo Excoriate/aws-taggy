@@ -8,22 +8,22 @@ import (
 	"github.com/Excoriate/aws-taggy/pkg/o11y"
 )
 
-// ValidateCmd represents the validate subcommand
-type ValidateCmd struct {
-	Config    string `help:"Path to the tag validation configuration file" required:"true"`
+// CheckCmd represents the compliance check command
+type CheckCmd struct {
+	Config    string `help:"Path to the tag compliance configuration file" required:"true"`
 	Output    string `help:"Output format (table|json|yaml)" default:"table" enum:"table,json,yaml"`
 	Table     bool   `help:"Display detailed information in tables" default:"false"`
 	Clipboard bool   `help:"Copy output to clipboard" default:"false"`
 }
 
-// Run method for ValidateCmd implements the configuration validation logic
-func (v *ValidateCmd) Run() error {
+// Run validates the configuration file and prepares for compliance checking
+func (c *CheckCmd) Run() error {
 	logger := o11y.DefaultLogger()
-	logger.Info(fmt.Sprintf("🔍 Validating configuration file: %s", v.Config))
+	logger.Info(fmt.Sprintf("🔍 Checking compliance configuration file: %s", c.Config))
 
 	// Initialize configuration loader and validator
 	loader := configuration.NewTaggyScanConfigLoader()
-	fileValidator, err := configuration.NewConfigFileValidator(v.Config)
+	fileValidator, err := configuration.NewConfigFileValidator(c.Config)
 	if err != nil {
 		return fmt.Errorf("failed to initialize file validator: %w", err)
 	}
@@ -34,7 +34,7 @@ func (v *ValidateCmd) Run() error {
 	}
 
 	// Load configuration
-	cfg, err := loader.LoadConfig(v.Config)
+	cfg, err := loader.LoadConfig(c.Config)
 	if err != nil {
 		return fmt.Errorf("failed to load configuration: %w", err)
 	}
@@ -47,7 +47,7 @@ func (v *ValidateCmd) Run() error {
 
 	// Prepare validation result
 	result := output.ValidationResult{
-		File:    v.Config,
+		File:    c.Config,
 		Valid:   true,
 		Status:  "valid",
 		Version: cfg.Version,
@@ -96,23 +96,23 @@ func (v *ValidateCmd) Run() error {
 	}
 
 	// Handle clipboard if requested
-	if v.Clipboard {
+	if c.Clipboard {
 		if err := output.CopyToClipboard(result); err != nil {
 			return fmt.Errorf("failed to copy to clipboard: %w", err)
 		}
-		fmt.Println("✅ Validation result copied to clipboard!")
+		fmt.Println("✅ Compliance check result copied to clipboard!")
 		return nil
 	}
 
 	// Create output formatter
-	formatter := output.NewFormatter(v.Output)
+	formatter := output.NewFormatter(c.Output)
 
 	if formatter.IsStructured() {
 		return formatter.Output(result)
 	}
 
 	// If table view is requested
-	if v.Table {
+	if c.Table {
 		return output.RenderDetailedTables(result)
 	}
 

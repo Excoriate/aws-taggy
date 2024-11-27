@@ -18,10 +18,11 @@ type RootCmd struct {
 	Debug   bool `help:"Enable debug mode"`
 
 	// Subcommands
-	Scan     ScanCmd     `cmd:"" help:"Scan AWS resources for tag compliance"`
-	Discover DiscoverCmd `cmd:"" help:"Discover AWS resources"`
-	Validate ValidateCmd `cmd:"" help:"Validate tag configurations"`
-	Fetch    FetchCmd    `cmd:"" help:"Fetch specific resource details"`
+	Scan       ScanCmd       `cmd:"" help:"Scan AWS resources for tag compliance"`
+	Discover   DiscoverCmd   `cmd:"" help:"Discover AWS resources"`
+	Config     ConfigCmd     `cmd:"" help:"Configuration management commands"`
+	Fetch      FetchCmd      `cmd:"" help:"Fetch specific resource details"`
+	Compliance ComplianceCmd `cmd:"" help:"AWS resource tag compliance commands"`
 }
 
 // Run implements the main logic for the root command
