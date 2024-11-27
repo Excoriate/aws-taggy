@@ -2,6 +2,8 @@ package configuration
 
 import (
 	"fmt"
+	"regexp"
+	"strings"
 
 	"github.com/Excoriate/aws-taggy/pkg/constants"
 	"github.com/Excoriate/aws-taggy/pkg/util"
@@ -543,5 +545,85 @@ func (v *ConfigValidator) validateResourceRegions() error {
 			}
 		}
 	}
+	return nil
+}
+
+// ValidateTagCase validates the case of a tag value according to the case rules
+func (v *ConfigValidator) ValidateTagCase(tagName, tagValue string) error {
+	if v.cfg.TagValidation.CaseRules == nil {
+		return nil
+	}
+
+	rule, exists := v.cfg.TagValidation.CaseRules[tagName]
+	if !exists {
+		return nil
+	}
+
+	switch rule.Case {
+	case CaseLowercase:
+		if tagValue != strings.ToLower(tagValue) {
+			return fmt.Errorf(rule.Message)
+		}
+	case CaseUppercase:
+		if tagValue != strings.ToUpper(tagValue) {
+			return fmt.Errorf(rule.Message)
+		}
+	case CaseMixed:
+		if rule.Pattern != "" {
+			matched, err := regexp.MatchString(rule.Pattern, tagValue)
+			if err != nil {
+				return fmt.Errorf("invalid mixed case pattern for tag %s: %w", tagName, err)
+			}
+			if !matched {
+				return fmt.Errorf(rule.Message)
+			}
+		}
+	}
+
+	return nil
+}
+
+// ValidateTag validates a single tag against all validation rules
+func (v *ConfigValidator) ValidateTag(tagName, tagValue string) error {
+	// Check case rules first
+	if err := v.ValidateTagCase(tagName, tagValue); err != nil {
+		return fmt.Errorf("case validation failed for tag %s: %w", tagName, err)
+	}
+
+	// Check allowed values
+	if allowedValues, exists := v.cfg.TagValidation.AllowedValues[tagName]; exists {
+		found := false
+		for _, allowed := range allowedValues {
+			if tagValue == allowed {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return fmt.Errorf("invalid value for tag %s: %s not in allowed values", tagName, tagValue)
+		}
+	}
+
+	// Check pattern rules
+	if pattern, exists := v.cfg.TagValidation.PatternRules[tagName]; exists {
+		if v.cfg.TagValidation.compiledRules == nil {
+			v.cfg.TagValidation.compiledRules = make(map[string]*regexp.Regexp)
+		}
+
+		regex, exists := v.cfg.TagValidation.compiledRules[tagName]
+		if !exists {
+			var err error
+			regex, err = regexp.Compile(pattern)
+			if err != nil {
+				return fmt.Errorf("invalid pattern for tag %s: %w", tagName, err)
+			}
+			v.cfg.TagValidation.compiledRules[tagName] = regex
+		}
+
+		if !regex.MatchString(tagValue) {
+			return fmt.Errorf("tag %s value does not match required pattern: %s", tagName, pattern)
+		}
+	}
+
 	return nil
 }

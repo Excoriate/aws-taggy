@@ -9,95 +9,125 @@ import (
 )
 
 func TestNewLogger(t *testing.T) {
-	testCases := []struct {
-		name          string
-		logLevel      LogLevel
-		logFunc       func(*Logger, string, ...any)
-		expectedLevel string
+	tests := []struct {
+		name     string
+		level    LogLevel
+		logFunc  func(*Logger, string)
+		expected string
 	}{
 		{
-			"Debug Level", 
-			LogLevelDebug, 
-			func(l *Logger, msg string, args ...any) { l.Debug(msg, args...) }, 
-			"level=DEBUG",
+			name:  "Debug Level",
+			level: LogLevelDebug,
+			logFunc: func(l *Logger, msg string) {
+				l.Debug(msg)
+			},
+			expected: "🐞",
 		},
 		{
-			"Info Level", 
-			LogLevelInfo, 
-			func(l *Logger, msg string, args ...any) { l.Info(msg, args...) }, 
-			"level=INFO",
+			name:  "Info Level",
+			level: LogLevelInfo,
+			logFunc: func(l *Logger, msg string) {
+				l.Info(msg)
+			},
+			expected: "ℹ️",
 		},
 		{
-			"Warn Level", 
-			LogLevelWarn, 
-			func(l *Logger, msg string, args ...any) { l.Warn(msg, args...) }, 
-			"level=WARN",
+			name:  "Warn Level",
+			level: LogLevelWarn,
+			logFunc: func(l *Logger, msg string) {
+				l.Warn(msg)
+			},
+			expected: "🔔",
 		},
 		{
-			"Error Level", 
-			LogLevelError, 
-			func(l *Logger, msg string, args ...any) { l.Error(msg, args...) }, 
-			"level=ERROR",
+			name:  "Error Level",
+			level: LogLevelError,
+			logFunc: func(l *Logger, msg string) {
+				l.Error(msg)
+			},
+			expected: "🚨",
 		},
 	}
 
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
 			var buf bytes.Buffer
-			logger := NewLogger(&buf, tc.logLevel)
+			logger := NewLogger(&buf, tt.level)
 
-			tc.logFunc(logger, "Test log message")
-			logOutput := buf.String()
-
-			assert.True(t, 
-				strings.Contains(logOutput, tc.expectedLevel), 
-				"Expected log level %s not found in output", 
-				tc.expectedLevel,
-			)
-			assert.True(t, 
-				strings.Contains(logOutput, "Test log message"), 
-				"Log message not found in output",
-			)
+			tt.logFunc(logger, "test message")
+			output := buf.String()
+			assert.True(t, strings.Contains(output, tt.expected),
+				"Expected emoji %s not found in output: %s", tt.expected, output)
+			assert.True(t, strings.Contains(output, "test message"),
+				"Expected message not found in output: %s", output)
 		})
 	}
 }
 
 func TestDefaultLogger(t *testing.T) {
-	defaultLogger := DefaultLogger()
-	assert.NotNil(t, defaultLogger)
+	var buf bytes.Buffer
+	logger := NewLogger(&buf, LogLevelInfo)
+
+	logger.Info("test message")
+	output := buf.String()
+	assert.True(t, strings.Contains(output, "ℹ️"),
+		"Expected info emoji not found in output: %s", output)
+	assert.True(t, strings.Contains(output, "test message"),
+		"Expected message not found in output: %s", output)
 }
 
 func TestLoggerMethods(t *testing.T) {
-	var buf bytes.Buffer
-	logger := NewLogger(&buf, LogLevelDebug)
-
-	testCases := []struct {
+	tests := []struct {
 		name     string
-		logFunc  func(string, ...any)
-		message  string
+		level    LogLevel
+		logFunc  func(*Logger, string)
 		expected string
 	}{
-		{"Debug", logger.Debug, "Debug message", "level=DEBUG"},
-		{"Info", logger.Info, "Info message", "level=INFO"},
-		{"Warn", logger.Warn, "Warn message", "level=WARN"},
-		{"Error", logger.Error, "Error message", "level=ERROR"},
+		{
+			name:  "Debug",
+			level: LogLevelDebug,
+			logFunc: func(l *Logger, msg string) {
+				l.Debug(msg)
+			},
+			expected: "🐞",
+		},
+		{
+			name:  "Info",
+			level: LogLevelInfo,
+			logFunc: func(l *Logger, msg string) {
+				l.Info(msg)
+			},
+			expected: "ℹ️",
+		},
+		{
+			name:  "Warn",
+			level: LogLevelWarn,
+			logFunc: func(l *Logger, msg string) {
+				l.Warn(msg)
+			},
+			expected: "🔔",
+		},
+		{
+			name:  "Error",
+			level: LogLevelError,
+			logFunc: func(l *Logger, msg string) {
+				l.Error(msg)
+			},
+			expected: "🚨",
+		},
 	}
 
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			buf.Reset()
-			tc.logFunc(tc.message)
-			logOutput := buf.String()
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var buf bytes.Buffer
+			logger := NewLogger(&buf, tt.level)
 
-			assert.True(t, 
-				strings.Contains(logOutput, tc.expected), 
-				"Expected log level %s not found in output", 
-				tc.expected,
-			)
-			assert.True(t, 
-				strings.Contains(logOutput, tc.message), 
-				"Log message not found in output",
-			)
+			tt.logFunc(logger, "test message")
+			output := buf.String()
+			assert.True(t, strings.Contains(output, tt.expected),
+				"Expected emoji %s not found in output: %s", tt.expected, output)
+			assert.True(t, strings.Contains(output, "test message"),
+				"Expected message not found in output: %s", output)
 		})
 	}
 }

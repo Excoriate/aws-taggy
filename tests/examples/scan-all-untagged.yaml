@@ -96,6 +96,13 @@ compliance_levels:
 tag_validation:
   pattern_rules:
     Name: ^.+$  # Ensure Name tag is not empty
+  case_rules:
+    Name:
+      case: lowercase
+      message: "Name tag must be lowercase"
+    ComplianceStatus:
+      case: lowercase
+      message: "ComplianceStatus tag must be lowercase"
 
 # Notification configuration
 notifications:

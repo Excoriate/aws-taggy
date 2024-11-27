@@ -85,17 +85,28 @@ type ComplianceLevel struct {
 	SpecificTags map[string]string `yaml:"specific_tags"`
 }
 
-// TagValidation contains rules for validating tags across resources.
-// It includes allowed values for specific tags and pattern-based validation rules.
+// CaseType represents the type of case validation
+type CaseType string
+
+const (
+	CaseLowercase CaseType = "lowercase"
+	CaseUppercase CaseType = "uppercase"
+	CaseMixed     CaseType = "mixed"
+)
+
+// CaseRule defines the case validation rule for a tag
+type CaseRule struct {
+	Case    CaseType `yaml:"case"`
+	Pattern string   `yaml:"pattern,omitempty"` // Optional pattern for mixed case
+	Message string   `yaml:"message"`
+}
+
+// TagValidation contains all tag validation rules
 type TagValidation struct {
-	// AllowedValues defines acceptable values for specific tag keys
-	AllowedValues map[string][]string `yaml:"allowed_values"`
-
-	// PatternRules contains regex patterns for tag value validation
-	PatternRules map[string]string `yaml:"pattern_rules"`
-
-	// compiledRules stores pre-compiled regex patterns for efficient validation
-	compiledRules map[string]*regexp.Regexp
+	AllowedValues map[string][]string       `yaml:"allowed_values"`
+	PatternRules  map[string]string         `yaml:"pattern_rules"`
+	CaseRules     map[string]CaseRule       `yaml:"case_rules"`
+	compiledRules map[string]*regexp.Regexp // Internal use for compiled patterns
 }
 
 // NotificationConfig manages the notification settings for reporting

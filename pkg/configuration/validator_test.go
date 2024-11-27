@@ -63,13 +63,13 @@ func deepCopyConfig(cfg *TaggyScanConfig) *TaggyScanConfig {
 		Version: cfg.Version,
 		AWS:     cfg.AWS,
 		Global:  cfg.Global,
-		
+
 		// Deep copy resources
 		Resources: make(map[string]ResourceConfig),
-		
+
 		// Deep copy compliance levels
 		ComplianceLevels: make(map[string]ComplianceLevel),
-		
+
 		TagValidation: cfg.TagValidation,
 		Notifications: cfg.Notifications,
 	}
@@ -83,15 +83,15 @@ func deepCopyConfig(cfg *TaggyScanConfig) *TaggyScanConfig {
 	// Copy compliance levels
 	for levelName, level := range cfg.ComplianceLevels {
 		newLevel := ComplianceLevel{
-			RequiredTags:  make([]string, len(level.RequiredTags)),
+			RequiredTags: make([]string, len(level.RequiredTags)),
 			SpecificTags: make(map[string]string),
 		}
 		copy(newLevel.RequiredTags, level.RequiredTags)
-		
+
 		for k, v := range level.SpecificTags {
 			newLevel.SpecificTags[k] = v
 		}
-		
+
 		newCfg.ComplianceLevels[levelName] = newLevel
 	}
 
@@ -524,6 +524,113 @@ func TestConfigValidator_Validate(t *testing.T) {
 
 			err = validator.Validate()
 			if tc.wantErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
+func TestValidateTagCase(t *testing.T) {
+	tests := []struct {
+		name      string
+		config    *TaggyScanConfig
+		tagName   string
+		tagValue  string
+		wantError bool
+	}{
+		{
+			name: "lowercase validation success",
+			config: &TaggyScanConfig{
+				TagValidation: TagValidation{
+					CaseRules: map[string]CaseRule{
+						"environment": {
+							Case:    CaseLowercase,
+							Message: "must be lowercase",
+						},
+					},
+				},
+			},
+			tagName:   "environment",
+			tagValue:  "production",
+			wantError: false,
+		},
+		{
+			name: "lowercase validation failure",
+			config: &TaggyScanConfig{
+				TagValidation: TagValidation{
+					CaseRules: map[string]CaseRule{
+						"environment": {
+							Case:    CaseLowercase,
+							Message: "must be lowercase",
+						},
+					},
+				},
+			},
+			tagName:   "environment",
+			tagValue:  "Production",
+			wantError: true,
+		},
+		{
+			name: "uppercase validation success",
+			config: &TaggyScanConfig{
+				TagValidation: TagValidation{
+					CaseRules: map[string]CaseRule{
+						"costcenter": {
+							Case:    CaseUppercase,
+							Message: "must be uppercase",
+						},
+					},
+				},
+			},
+			tagName:   "costcenter",
+			tagValue:  "ABC123",
+			wantError: false,
+		},
+		{
+			name: "mixed case validation success",
+			config: &TaggyScanConfig{
+				TagValidation: TagValidation{
+					CaseRules: map[string]CaseRule{
+						"projectcode": {
+							Case:    CaseMixed,
+							Pattern: "^[A-Z]+-[0-9]+$",
+							Message: "must follow pattern",
+						},
+					},
+				},
+			},
+			tagName:   "projectcode",
+			tagValue:  "PRJ-123",
+			wantError: false,
+		},
+		{
+			name: "mixed case validation failure",
+			config: &TaggyScanConfig{
+				TagValidation: TagValidation{
+					CaseRules: map[string]CaseRule{
+						"projectcode": {
+							Case:    CaseMixed,
+							Pattern: "^[A-Z]+-[0-9]+$",
+							Message: "must follow pattern",
+						},
+					},
+				},
+			},
+			tagName:   "projectcode",
+			tagValue:  "prj-123",
+			wantError: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			validator, err := NewConfigValidator(tt.config)
+			require.NoError(t, err)
+
+			err = validator.ValidateTagCase(tt.tagName, tt.tagValue)
+			if tt.wantError {
 				assert.Error(t, err)
 			} else {
 				assert.NoError(t, err)
