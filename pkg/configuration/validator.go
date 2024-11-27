@@ -476,6 +476,11 @@ func (v *ConfigValidator) Validate() error {
 		return fmt.Errorf("tag validation rules validation failed: %w", err)
 	}
 
+	// Validate tag keys
+	if err := v.validateTagKeys(); err != nil {
+		return fmt.Errorf("tag key validation failed: %w", err)
+	}
+
 	// Validate notifications
 	if err := v.ValidateNotifications(); err != nil {
 		return fmt.Errorf("notifications validation failed: %w", err)
@@ -823,5 +828,55 @@ func (v *ConfigValidator) ValidateTagCount(tags map[string]string) error {
 	if v.cfg.Global.TagCriteria.MaxTags > 0 && len(tags) > v.cfg.Global.TagCriteria.MaxTags {
 		return fmt.Errorf("number of tags (%d) exceeds maximum allowed (%d)", len(tags), v.cfg.Global.TagCriteria.MaxTags)
 	}
+	return nil
+}
+
+func (v *ConfigValidator) validateTagKeys() error {
+	keyValidation := v.cfg.TagValidation.KeyValidation
+
+	// Validate key format rules
+	for _, formatRule := range v.cfg.TagValidation.KeyFormatRules {
+		// If a pattern is specified, validate it
+		if formatRule.Pattern != "" {
+			regex, err := regexp.Compile(formatRule.Pattern)
+			if err != nil {
+				return fmt.Errorf("invalid key format pattern: %w", err)
+			}
+
+			// Check if the pattern matches the key
+			if !regex.MatchString(formatRule.Pattern) {
+				return fmt.Errorf("tag key does not match required pattern: %s", formatRule.Message)
+			}
+		}
+	}
+
+	// Check allowed prefixes
+	if len(keyValidation.AllowedPrefixes) > 0 {
+		validPrefix := false
+		for _, prefix := range keyValidation.AllowedPrefixes {
+			// Check if any key starts with the allowed prefix
+			for _, formatRule := range v.cfg.TagValidation.KeyFormatRules {
+				if strings.HasPrefix(formatRule.Pattern, prefix) {
+					validPrefix = true
+					break
+				}
+			}
+		}
+		if !validPrefix {
+			return fmt.Errorf("no tag keys start with the allowed prefixes: %v",
+				keyValidation.AllowedPrefixes)
+		}
+	}
+
+	// Check key length constraints
+	if keyValidation.MaxLength > 0 {
+		for _, formatRule := range v.cfg.TagValidation.KeyFormatRules {
+			if len(formatRule.Pattern) > keyValidation.MaxLength {
+				return fmt.Errorf("tag key pattern exceeds maximum length of %d characters",
+					keyValidation.MaxLength)
+			}
+		}
+	}
+
 	return nil
 }

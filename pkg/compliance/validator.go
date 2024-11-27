@@ -224,3 +224,38 @@ func contains(slice []string, value string) bool {
 	}
 	return false
 }
+
+func (v *TagValidator) validateTagCase(tags map[string]string) []Violation {
+	var violations []Violation
+
+	for tagName, caseRule := range v.config.TagValidation.CaseRules {
+		tagValue, exists := tags[tagName]
+		if !exists {
+			continue
+		}
+
+		var violation Violation
+		switch caseRule.Case {
+		case "lowercase":
+			if tagValue != strings.ToLower(tagValue) {
+				violation = Violation{
+					Type:    "case_violation",
+					Message: fmt.Sprintf("Tag %s violates case rule: %s", tagName, caseRule.Message),
+				}
+			}
+		case "uppercase":
+			if tagValue != strings.ToUpper(tagValue) {
+				violation = Violation{
+					Type:    "case_violation",
+					Message: fmt.Sprintf("Tag %s violates case rule: %s", tagName, caseRule.Message),
+				}
+			}
+		}
+
+		if violation.Type != "" {
+			violations = append(violations, violation)
+		}
+	}
+
+	return violations
+}

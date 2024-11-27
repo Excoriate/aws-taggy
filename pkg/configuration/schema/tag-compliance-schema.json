@@ -175,8 +175,7 @@
                             "message": {"type": "string"}
                         },
                         "required": ["pattern"]
-                    },
-                    "description": "Rules for validating tag key formats"
+                    }
                 },
                 "length_rules": {
                     "type": "object",
@@ -187,8 +186,7 @@
                             "max_length": {"type": "integer", "minimum": 1},
                             "message": {"type": "string"}
                         }
-                    },
-                    "description": "Rules for tag value length constraints"
+                    }
                 },
                 "key_validation": {
                     "type": "object",
@@ -215,6 +213,34 @@
                             "items": {"type": "string"},
                             "uniqueItems": true
                         }
+                    }
+                },
+                "case_sensitivity": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "object",
+                        "properties": {
+                            "mode": {
+                                "type": "string",
+                                "enum": ["strict", "relaxed"]
+                            }
+                        },
+                        "required": ["mode"]
+                    }
+                },
+                "case_rules": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "object",
+                        "properties": {
+                            "case": {
+                                "type": "string",
+                                "enum": ["lowercase", "uppercase", "mixed"]
+                            },
+                            "pattern": {"type": "string"},
+                            "message": {"type": "string"}
+                        },
+                        "required": ["case"]
                     }
                 }
             }

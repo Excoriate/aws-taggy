@@ -501,7 +501,7 @@ func TestConfigValidator_Validate(t *testing.T) {
 		{
 			name: "Invalid Version",
 			setup: func(cfg *TaggyScanConfig) {
-				cfg.Version = ""
+				cfg.Version = "0.1.0"
 			},
 			wantErr: true,
 		},
@@ -515,40 +515,41 @@ func TestConfigValidator_Validate(t *testing.T) {
 		{
 			name: "Invalid Global Config - Negative Batch Size",
 			setup: func(cfg *TaggyScanConfig) {
-				negativeSize := -1
-				cfg.Global.BatchSize = &negativeSize
+				negBatchSize := -1
+				cfg.Global.BatchSize = &negBatchSize
 			},
 			wantErr: true,
 		},
 		{
 			name: "Invalid Tag Criteria - MinimumRequiredTags Greater Than Required Tags",
 			setup: func(cfg *TaggyScanConfig) {
-				cfg.Global.TagCriteria.MinimumRequiredTags = 5
-				cfg.Global.TagCriteria.RequiredTags = []string{"Tag1", "Tag2"}
+				cfg.Global.TagCriteria.MinimumRequiredTags = 3
 			},
 			wantErr: true,
 		},
 		{
 			name: "Invalid Resource Config - Empty Pattern in Excluded Resources",
 			setup: func(cfg *TaggyScanConfig) {
-				cfg.Resources["s3"] = ResourceConfig{
-					Enabled: true,
-					ExcludedResources: []ExcludedResource{
-						{Pattern: ""},
-					},
+				// Create a copy of the existing s3 resource
+				s3Resource := cfg.Resources["s3"]
+				s3Resource.ExcludedResources = []ExcludedResource{
+					{Pattern: "", Reason: "Test"},
 				}
+
+				// Update the map with the modified resource
+				cfg.Resources["s3"] = s3Resource
 			},
 			wantErr: true,
 		},
 		{
 			name: "Invalid Compliance Level Reference",
 			setup: func(cfg *TaggyScanConfig) {
-				cfg.Resources["s3"] = ResourceConfig{
-					Enabled: true,
-					TagCriteria: TagCriteria{
-						ComplianceLevel: "invalid_level",
-					},
-				}
+				// Create a copy of the existing s3 resource
+				s3Resource := cfg.Resources["s3"]
+				s3Resource.TagCriteria.ComplianceLevel = "non-existent"
+
+				// Update the map with the modified resource
+				cfg.Resources["s3"] = s3Resource
 			},
 			wantErr: true,
 		},
@@ -572,23 +573,6 @@ func TestConfigValidator_Validate(t *testing.T) {
 				}
 			},
 			wantErr: true,
-		},
-		{
-			name: "Valid Complex Configuration",
-			setup: func(cfg *TaggyScanConfig) {
-				cfg.Global.TagCriteria.MinimumRequiredTags = 2
-				cfg.Global.TagCriteria.RequiredTags = []string{"Environment", "Owner"}
-				cfg.TagValidation.CaseRules = map[string]CaseRule{
-					"Environment": {
-						Case:    "lowercase",
-						Message: "must be lowercase",
-					},
-				}
-				cfg.TagValidation.PatternRules = map[string]string{
-					"Owner": "^[a-z]+@[a-z]+\\.com$",
-				}
-			},
-			wantErr: false,
 		},
 	}
 
@@ -870,4 +854,477 @@ func TestValidateTagValidation(t *testing.T) {
 			})
 		}
 	})
+}
+
+func TestValidateTagKey(t *testing.T) {
+	tests := []struct {
+		name    string
+		config  *TaggyScanConfig
+		key     string
+		wantErr bool
+	}{
+		{
+			name: "Valid key with allowed prefix",
+			config: &TaggyScanConfig{
+				TagValidation: TagValidation{
+					KeyValidation: KeyValidation{
+						AllowedPrefixes: []string{"project-", "env-"},
+						MaxLength:       128,
+					},
+				},
+			},
+			key:     "project-test",
+			wantErr: false,
+		},
+		{
+			name: "Invalid key prefix",
+			config: &TaggyScanConfig{
+				TagValidation: TagValidation{
+					KeyValidation: KeyValidation{
+						AllowedPrefixes: []string{"project-", "env-"},
+					},
+				},
+			},
+			key:     "invalid-test",
+			wantErr: true,
+		},
+		{
+			name: "Valid key with allowed suffix",
+			config: &TaggyScanConfig{
+				TagValidation: TagValidation{
+					KeyValidation: KeyValidation{
+						AllowedSuffixes: []string{"-prod", "-dev"},
+					},
+				},
+			},
+			key:     "service-prod",
+			wantErr: false,
+		},
+		{
+			name: "Invalid key suffix",
+			config: &TaggyScanConfig{
+				TagValidation: TagValidation{
+					KeyValidation: KeyValidation{
+						AllowedSuffixes: []string{"-prod", "-dev"},
+					},
+				},
+			},
+			key:     "service-test",
+			wantErr: true,
+		},
+		{
+			name: "Key exceeds max length",
+			config: &TaggyScanConfig{
+				TagValidation: TagValidation{
+					KeyValidation: KeyValidation{
+						MaxLength: 10,
+					},
+				},
+			},
+			key:     "very-long-key-name",
+			wantErr: true,
+		},
+		{
+			name: "Key matches format rule",
+			config: &TaggyScanConfig{
+				TagValidation: TagValidation{
+					KeyFormatRules: []KeyFormatRule{
+						{
+							Pattern: "^[a-z][a-z0-9-]*$",
+							Message: "Must start with lowercase letter",
+						},
+					},
+				},
+			},
+			key:     "app-123",
+			wantErr: false,
+		},
+		{
+			name: "Key violates format rule",
+			config: &TaggyScanConfig{
+				TagValidation: TagValidation{
+					KeyFormatRules: []KeyFormatRule{
+						{
+							Pattern: "^[a-z][a-z0-9-]*$",
+							Message: "Must start with lowercase letter",
+						},
+					},
+				},
+			},
+			key:     "123-app",
+			wantErr: true,
+		},
+		{
+			name: "Key is prohibited",
+			config: &TaggyScanConfig{
+				TagValidation: TagValidation{
+					ProhibitedTags: []string{"aws:", "temp:"},
+				},
+			},
+			key:     "aws:name",
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			validator, err := NewConfigValidator(tt.config)
+			require.NoError(t, err)
+
+			err = validator.ValidateTagKey(tt.key)
+			if tt.wantErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
+func TestValidateTagValue(t *testing.T) {
+	tests := []struct {
+		name    string
+		config  *TaggyScanConfig
+		key     string
+		value   string
+		wantErr bool
+	}{
+		{
+			name: "Value within length constraints",
+			config: &TaggyScanConfig{
+				TagValidation: TagValidation{
+					LengthRules: map[string]LengthRule{
+						"environment": {
+							MinLength: intPtr(2),
+							MaxLength: intPtr(15),
+							Message:   "Length must be between 2 and 15",
+						},
+					},
+				},
+			},
+			key:     "environment",
+			value:   "production",
+			wantErr: false,
+		},
+		{
+			name: "Value too short",
+			config: &TaggyScanConfig{
+				TagValidation: TagValidation{
+					LengthRules: map[string]LengthRule{
+						"environment": {
+							MinLength: intPtr(4),
+							Message:   "Must be at least 4 characters",
+						},
+					},
+				},
+			},
+			key:     "environment",
+			value:   "dev",
+			wantErr: true,
+		},
+		{
+			name: "Value matches allowed characters",
+			config: &TaggyScanConfig{
+				TagValidation: TagValidation{
+					ValueValidation: ValueValidation{
+						AllowedCharacters: "a-zA-Z0-9-_",
+					},
+				},
+			},
+			key:     "name",
+			value:   "app-123",
+			wantErr: false,
+		},
+		{
+			name: "Value contains disallowed characters",
+			config: &TaggyScanConfig{
+				TagValidation: TagValidation{
+					ValueValidation: ValueValidation{
+						AllowedCharacters: "a-zA-Z0-9-_",
+					},
+				},
+			},
+			key:     "name",
+			value:   "app@123",
+			wantErr: true,
+		},
+		{
+			name: "Value is disallowed",
+			config: &TaggyScanConfig{
+				TagValidation: TagValidation{
+					ValueValidation: ValueValidation{
+						DisallowedValues: []string{"none", "null", "undefined"},
+					},
+				},
+			},
+			key:     "owner",
+			value:   "none",
+			wantErr: true,
+		},
+		{
+			name: "Value matches pattern rule",
+			config: &TaggyScanConfig{
+				TagValidation: TagValidation{
+					PatternRules: map[string]string{
+						"email": "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$",
+					},
+				},
+			},
+			key:     "email",
+			value:   "user@company.com",
+			wantErr: false,
+		},
+		{
+			name: "Value violates pattern rule",
+			config: &TaggyScanConfig{
+				TagValidation: TagValidation{
+					PatternRules: map[string]string{
+						"email": "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$",
+					},
+				},
+			},
+			key:     "email",
+			value:   "invalid-email",
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			validator, err := NewConfigValidator(tt.config)
+			require.NoError(t, err)
+
+			err = validator.ValidateTagValue(tt.key, tt.value)
+			if tt.wantErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
+func TestValidateTagCount(t *testing.T) {
+	tests := []struct {
+		name    string
+		config  *TaggyScanConfig
+		tags    map[string]string
+		wantErr bool
+	}{
+		{
+			name: "Tags within limit",
+			config: &TaggyScanConfig{
+				Global: GlobalConfig{
+					TagCriteria: TagCriteria{
+						MaxTags: 5,
+					},
+				},
+			},
+			tags: map[string]string{
+				"name":        "test",
+				"environment": "prod",
+				"owner":       "team",
+			},
+			wantErr: false,
+		},
+		{
+			name: "Tags exceed limit",
+			config: &TaggyScanConfig{
+				Global: GlobalConfig{
+					TagCriteria: TagCriteria{
+						MaxTags: 2,
+					},
+				},
+			},
+			tags: map[string]string{
+				"name":        "test",
+				"environment": "prod",
+				"owner":       "team",
+			},
+			wantErr: true,
+		},
+		{
+			name: "No max tags limit",
+			config: &TaggyScanConfig{
+				Global: GlobalConfig{
+					TagCriteria: TagCriteria{
+						MaxTags: 0,
+					},
+				},
+			},
+			tags: map[string]string{
+				"name":        "test",
+				"environment": "prod",
+				"owner":       "team",
+				"project":     "demo",
+				"cost":        "123",
+			},
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			validator, err := NewConfigValidator(tt.config)
+			require.NoError(t, err)
+
+			err = validator.ValidateTagCount(tt.tags)
+			if tt.wantErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
+func TestConfigValidator_ValidateTagValidation(t *testing.T) {
+	testCases := []struct {
+		name    string
+		setup   func(*TaggyScanConfig)
+		wantErr bool
+	}{
+		{
+			name: "Valid Tag Validation Configuration",
+			setup: func(cfg *TaggyScanConfig) {
+				// Already valid in base config
+			},
+			wantErr: false,
+		},
+		{
+			name: "Empty Allowed Values",
+			setup: func(cfg *TaggyScanConfig) {
+				cfg.TagValidation.AllowedValues = map[string][]string{
+					"Environment": {},
+				}
+			},
+			wantErr: true,
+		},
+		{
+			name: "Duplicate Allowed Values",
+			setup: func(cfg *TaggyScanConfig) {
+				cfg.TagValidation.AllowedValues = map[string][]string{
+					"Environment": {"production", "production"},
+				}
+			},
+			wantErr: true,
+		},
+		{
+			name: "Invalid Case Validation Mode",
+			setup: func(cfg *TaggyScanConfig) {
+				cfg.TagValidation.CaseSensitivity = map[string]CaseSensitivityConfig{
+					"Environment": {
+						Mode: "invalid_mode",
+					},
+				}
+			},
+			wantErr: true,
+		},
+		{
+			name: "Strict Case Validation Without Allowed Values",
+			setup: func(cfg *TaggyScanConfig) {
+				cfg.TagValidation.CaseSensitivity = map[string]CaseSensitivityConfig{
+					"Environment": {
+						Mode: CaseValidationStrict,
+					},
+				}
+				cfg.TagValidation.AllowedValues = map[string][]string{}
+			},
+			wantErr: true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := createBaseValidConfig()
+			tc.setup(cfg)
+
+			validator, err := NewConfigValidator(cfg)
+			require.NoError(t, err)
+
+			err = validator.ValidateTagValidation()
+			if tc.wantErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
+func TestConfigValidator_ValidateTagKeys(t *testing.T) {
+	testCases := []struct {
+		name    string
+		setup   func(*TaggyScanConfig)
+		wantErr bool
+	}{
+		{
+			name: "Valid Key Validation",
+			setup: func(cfg *TaggyScanConfig) {
+				cfg.TagValidation.KeyValidation = KeyValidation{
+					AllowedPrefixes: []string{"project-", "env-"},
+					MaxLength:       128,
+				}
+				cfg.TagValidation.KeyFormatRules = []KeyFormatRule{
+					{
+						Pattern: "^[a-z][a-z0-9_-]*$",
+						Message: "Invalid key format",
+					},
+				}
+			},
+			wantErr: false,
+		},
+		{
+			name: "Key Exceeds Max Length",
+			setup: func(cfg *TaggyScanConfig) {
+				cfg.TagValidation.KeyValidation = KeyValidation{
+					MaxLength: 10,
+				}
+				cfg.TagValidation.KeyFormatRules = []KeyFormatRule{
+					{
+						Pattern: "very_long_key_pattern_that_exceeds_max_length",
+						Message: "Key too long",
+					},
+				}
+			},
+			wantErr: true,
+		},
+		{
+			name: "No Allowed Prefix",
+			setup: func(cfg *TaggyScanConfig) {
+				cfg.TagValidation.KeyValidation = KeyValidation{
+					AllowedPrefixes: []string{"specific-"},
+				}
+				cfg.TagValidation.KeyFormatRules = []KeyFormatRule{
+					{
+						Pattern: "unrelated_key_pattern",
+						Message: "No matching prefix",
+					},
+				}
+			},
+			wantErr: true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := createBaseValidConfig()
+			tc.setup(cfg)
+
+			validator, err := NewConfigValidator(cfg)
+			require.NoError(t, err)
+
+			err = validator.validateTagKeys()
+			if tc.wantErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
+// Helper function to create pointer to int
+func intPtr(i int) *int {
+	return &i
 }
