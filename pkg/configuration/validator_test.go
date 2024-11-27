@@ -506,11 +506,89 @@ func TestConfigValidator_Validate(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name: "Invalid AWS Configuration",
+			name: "Invalid AWS Configuration - Invalid Region Mode",
 			setup: func(cfg *TaggyScanConfig) {
 				cfg.AWS.Regions.Mode = "invalid"
 			},
 			wantErr: true,
+		},
+		{
+			name: "Invalid Global Config - Negative Batch Size",
+			setup: func(cfg *TaggyScanConfig) {
+				negativeSize := -1
+				cfg.Global.BatchSize = &negativeSize
+			},
+			wantErr: true,
+		},
+		{
+			name: "Invalid Tag Criteria - MinimumRequiredTags Greater Than Required Tags",
+			setup: func(cfg *TaggyScanConfig) {
+				cfg.Global.TagCriteria.MinimumRequiredTags = 5
+				cfg.Global.TagCriteria.RequiredTags = []string{"Tag1", "Tag2"}
+			},
+			wantErr: true,
+		},
+		{
+			name: "Invalid Resource Config - Empty Pattern in Excluded Resources",
+			setup: func(cfg *TaggyScanConfig) {
+				cfg.Resources["s3"] = ResourceConfig{
+					Enabled: true,
+					ExcludedResources: []ExcludedResource{
+						{Pattern: ""},
+					},
+				}
+			},
+			wantErr: true,
+		},
+		{
+			name: "Invalid Compliance Level Reference",
+			setup: func(cfg *TaggyScanConfig) {
+				cfg.Resources["s3"] = ResourceConfig{
+					Enabled: true,
+					TagCriteria: TagCriteria{
+						ComplianceLevel: "invalid_level",
+					},
+				}
+			},
+			wantErr: true,
+		},
+		{
+			name: "Invalid Case Rule - Unknown Case Type",
+			setup: func(cfg *TaggyScanConfig) {
+				cfg.TagValidation.CaseRules = map[string]CaseRule{
+					"Environment": {
+						Case:    "unknown",
+						Message: "test",
+					},
+				}
+			},
+			wantErr: true,
+		},
+		{
+			name: "Invalid Pattern Rule - Empty Pattern",
+			setup: func(cfg *TaggyScanConfig) {
+				cfg.TagValidation.PatternRules = map[string]string{
+					"CostCenter": "",
+				}
+			},
+			wantErr: true,
+		},
+		{
+			name: "Valid Complex Configuration",
+			setup: func(cfg *TaggyScanConfig) {
+				cfg.Global.TagCriteria.MinimumRequiredTags = 2
+				cfg.Global.TagCriteria.RequiredTags = []string{"Environment", "Owner"}
+				cfg.TagValidation.CaseRules = map[string]CaseRule{
+					"Environment": {
+						Case:    "lowercase",
+						Message: "must be lowercase",
+					},
+				}
+				cfg.TagValidation.PatternRules = map[string]string{
+					"Owner": "^[a-z]+@[a-z]+\\.com$",
+				}
+			},
+			wantErr: false,
 		},
 	}
 

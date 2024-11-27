@@ -1,13 +1,16 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/Excoriate/aws-taggy/cli/internal/output"
 	"github.com/Excoriate/aws-taggy/cli/internal/tui"
 	"github.com/Excoriate/aws-taggy/pkg/compliance"
 	"github.com/Excoriate/aws-taggy/pkg/configuration"
+	"github.com/Excoriate/aws-taggy/pkg/inspector"
 	"github.com/Excoriate/aws-taggy/pkg/o11y"
+	"github.com/Excoriate/aws-taggy/pkg/taggy"
 )
 
 // CheckCmd represents the compliance check command
@@ -25,15 +28,6 @@ func (c *CheckCmd) Run() error {
 
 	// Initialize configuration loader and validator
 	loader := configuration.NewTaggyScanConfigLoader()
-	fileValidator, err := configuration.NewConfigFileValidator(c.Config)
-	if err != nil {
-		return fmt.Errorf("failed to initialize file validator: %w", err)
-	}
-
-	// Validate file first
-	if err := fileValidator.Validate(); err != nil {
-		return fmt.Errorf("file validation failed: %w", err)
-	}
 
 	// Load configuration
 	cfg, err := loader.LoadConfig(c.Config)
@@ -52,41 +46,99 @@ func (c *CheckCmd) Run() error {
 		return fmt.Errorf("configuration validation failed: %w", err)
 	}
 
+	// Initialize taggy client
+	client, err := taggy.New(c.Config)
+	if err != nil {
+		return fmt.Errorf("failed to initialize taggy client: %w", err)
+	}
+
+	// Initialize scanner manager
+	scannerMgr, err := inspector.NewScannerManager(*client.Config())
+	if err != nil {
+		return fmt.Errorf("failed to create scanner manager: %w", err)
+	}
+
+	// Scan resources
+	logger.Info("🔍 Scanning AWS resources...")
+	ctx := context.Background()
+	if err := scannerMgr.Scan(ctx); err != nil {
+		return fmt.Errorf("failed to scan resources: %w", err)
+	}
+
+	// Get scan results
+	scanResults := scannerMgr.GetResults()
+
 	// Create compliance validator
 	complianceValidator := compliance.NewTagValidator(cfg)
 
-	// Prepare example test tags for demonstration
-	testTags := []map[string]string{
-		{
-			"Environment": "production",
-			"Owner":       "team@company.com",
-		},
-		{
-			"Environment": "INVALID-ENV",
-			"Owner":       "invalid-email",
-		},
-		{
-			// Missing required tags
-		},
+	// Validate tags and collect results
+	var complianceResults []*output.ComplianceResult
+	for _, result := range scanResults {
+		for _, resource := range result.Resources {
+			validationResult := complianceValidator.ValidateTags(resource.Tags)
+
+			// Convert compliance.ComplianceResult to output.ComplianceResult
+			outputResult := &output.ComplianceResult{
+				IsCompliant:     validationResult.IsCompliant,
+				ResourceTags:    validationResult.ResourceTags,
+				ComplianceLevel: string(validationResult.ComplianceLevel),
+				ResourceID:      resource.ID,
+				ResourceType:    resource.Type,
+			}
+
+			// Convert violations
+			for _, v := range validationResult.Violations {
+				outputResult.Violations = append(outputResult.Violations, output.Violation{
+					Type:    string(v.Type),
+					Message: v.Message,
+				})
+			}
+
+			complianceResults = append(complianceResults, outputResult)
+		}
 	}
 
-	// Validate tags and collect results
-	var complianceResults []*compliance.ComplianceResult
-	for _, tags := range testTags {
-		result := complianceValidator.ValidateTags(tags)
+	// Convert output results back to compliance results for summary generation
+	var internalResults []*compliance.ComplianceResult
+	for _, result := range complianceResults {
+		internalResult := &compliance.ComplianceResult{
+			IsCompliant:     result.IsCompliant,
+			ResourceTags:    result.ResourceTags,
+			ComplianceLevel: compliance.ComplianceLevel(result.ComplianceLevel),
+		}
 
-		complianceResults = append(complianceResults, result)
+		// Convert violations
+		for _, v := range result.Violations {
+			internalResult.Violations = append(internalResult.Violations, compliance.Violation{
+				Type:    compliance.ViolationType(v.Type),
+				Message: v.Message,
+			})
+		}
+
+		internalResults = append(internalResults, internalResult)
 	}
 
 	// Generate compliance summary
-	summary := compliance.GenerateSummary(complianceResults)
+	summary := compliance.GenerateSummary(internalResults)
 
 	// Prepare validation result for output
 	result := output.ValidationResult{
-		File:    c.Config,
-		Valid:   true,
-		Status:  "valid",
-		Version: cfg.Version,
+		File:              c.Config,
+		Valid:             true,
+		Status:            "valid",
+		Version:           cfg.Version,
+		ComplianceResults: complianceResults,
+		ComplianceSummary: &output.ComplianceSummary{
+			TotalResources:        summary.TotalResources,
+			CompliantResources:    summary.CompliantResources,
+			NonCompliantResources: summary.NonCompliantResources,
+			GlobalViolations:      make(map[string]int),
+		},
+	}
+
+	// Convert global violations
+	for vType, count := range summary.GlobalViolations {
+		result.ComplianceSummary.GlobalViolations[string(vType)] = count
 	}
 
 	// Handle clipboard if requested
@@ -110,6 +162,7 @@ func (c *CheckCmd) Run() error {
 		// Prepare table data
 		tableData := [][]string{}
 		for _, compResult := range complianceResults {
+			resourceInfo := fmt.Sprintf("%s (%s)", compResult.ResourceID, compResult.ResourceType)
 			tagsStr := formatTags(compResult.ResourceTags)
 			complianceStatus := "✅ Compliant"
 			if !compResult.IsCompliant {
@@ -117,23 +170,25 @@ func (c *CheckCmd) Run() error {
 			}
 
 			violationsStr := formatViolations(compResult.Violations)
-			tableData = append(tableData, []string{tagsStr, complianceStatus, violationsStr})
+			tableData = append(tableData, []string{resourceInfo, tagsStr, complianceStatus, violationsStr})
 		}
 
 		// Add summary row
 		tableData = append(tableData, []string{
 			"Summary",
 			fmt.Sprintf("Total: %d", summary.TotalResources),
-			fmt.Sprintf("Compliant: %d, Non-Compliant: %d", summary.CompliantResources, summary.NonCompliantResources),
+			fmt.Sprintf("Compliant: %d", summary.CompliantResources),
+			fmt.Sprintf("Non-Compliant: %d", summary.NonCompliantResources),
 		})
 
 		// Render table
 		tableOpts := tui.TableOptions{
 			Title: "Compliance Check Results",
 			Columns: []tui.Column{
-				{Title: "Resource Tags", Width: 40, Flexible: true},
+				{Title: "Resource", Width: 30, Flexible: true},
+				{Title: "Tags", Width: 40, Flexible: true},
 				{Title: "Status", Width: 20},
-				{Title: "Details", Width: 40, Flexible: true},
+				{Title: "Violations", Width: 40, Flexible: true},
 			},
 			AutoWidth: true,
 		}
@@ -161,7 +216,7 @@ func formatTags(tags map[string]string) string {
 	return result
 }
 
-func formatViolations(violations []compliance.Violation) string {
+func formatViolations(violations []output.Violation) string {
 	if len(violations) == 0 {
 		return "No Violations"
 	}

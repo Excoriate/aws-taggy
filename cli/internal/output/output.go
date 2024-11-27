@@ -14,6 +14,8 @@ type ComplianceResult struct {
 	ResourceTags    map[string]string `json:"resource_tags" yaml:"resource_tags"`
 	Violations      []Violation       `json:"violations,omitempty" yaml:"violations,omitempty"`
 	ComplianceLevel string            `json:"compliance_level,omitempty" yaml:"compliance_level,omitempty"`
+	ResourceID      string            `json:"resource_id" yaml:"resource_id"`
+	ResourceType    string            `json:"resource_type" yaml:"resource_type"`
 }
 
 // Violation represents a specific tag compliance violation
