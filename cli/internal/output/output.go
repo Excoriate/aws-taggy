@@ -26,10 +26,30 @@ type Violation struct {
 
 // ComplianceSummary provides an overview of compliance results
 type ComplianceSummary struct {
-	TotalResources        int            `json:"total_resources" yaml:"total_resources"`
-	CompliantResources    int            `json:"compliant_resources" yaml:"compliant_resources"`
-	NonCompliantResources int            `json:"non_compliant_resources" yaml:"non_compliant_resources"`
-	GlobalViolations      map[string]int `json:"global_violations,omitempty" yaml:"global_violations,omitempty"`
+	TotalResources        int                    `json:"total_resources" yaml:"total_resources"`
+	CompliantResources    int                    `json:"compliant_resources" yaml:"compliant_resources"`
+	NonCompliantResources int                    `json:"non_compliant_resources" yaml:"non_compliant_resources"`
+	GlobalViolations      map[string]int         `json:"global_violations,omitempty" yaml:"global_violations,omitempty"`
+	RuleResults           map[string]*RuleResult `json:"rule_results,omitempty" yaml:"rule_results,omitempty"`
+}
+
+// RuleResult represents the result of a specific compliance rule
+type RuleResult struct {
+	Name        string `json:"name" yaml:"name"`
+	Description string `json:"description" yaml:"description"`
+	Passed      bool   `json:"passed" yaml:"passed"`
+	Failures    int    `json:"failures" yaml:"failures"`
+}
+
+// PlannedChecks represents the compliance checks that will be executed
+type PlannedChecks struct {
+	Rules []ComplianceRule `json:"rules" yaml:"rules"`
+}
+
+// ComplianceRule represents a single compliance rule to be checked
+type ComplianceRule struct {
+	Name        string `json:"name" yaml:"name"`
+	Description string `json:"description" yaml:"description"`
 }
 
 // Format represents the supported output formats
@@ -75,6 +95,51 @@ func (f *Formatter) Output(data interface{}) error {
 		return outputYAML(data)
 	default:
 		return fmt.Errorf("unsupported output format: %s", f.Format)
+	}
+}
+
+// PrintConfigValidation prints a success message for configuration validation
+func PrintConfigValidation() {
+	fmt.Printf("\n✅ Configuration validation successful\n\n")
+}
+
+// PrintPlannedChecks prints the compliance checks that will be executed
+func PrintPlannedChecks(checks PlannedChecks) {
+	fmt.Printf("🔍 Planned compliance checks:\n\n")
+	for _, rule := range checks.Rules {
+		fmt.Printf("  • %s\n    %s\n", rule.Name, rule.Description)
+	}
+	fmt.Printf("\n")
+}
+
+// PrintComplianceSummary prints a detailed summary of the compliance results
+func PrintComplianceSummary(summary ComplianceSummary) {
+	fmt.Printf("\n📊 Compliance Summary:\n\n")
+	fmt.Printf("Total Resources: %d\n", summary.TotalResources)
+	fmt.Printf("Compliant: %d\n", summary.CompliantResources)
+	fmt.Printf("Non-Compliant: %d\n\n", summary.NonCompliantResources)
+
+	if len(summary.RuleResults) > 0 {
+		fmt.Printf("Rule Results:\n")
+		for _, result := range summary.RuleResults {
+			status := "✅"
+			if !result.Passed {
+				status = "❌"
+			}
+			fmt.Printf("%s %s\n", status, result.Name)
+			fmt.Printf("   Description: %s\n", result.Description)
+			if !result.Passed {
+				fmt.Printf("   Failures: %d\n", result.Failures)
+			}
+			fmt.Printf("\n")
+		}
+	}
+
+	if len(summary.GlobalViolations) > 0 {
+		fmt.Printf("Violation Types:\n")
+		for vType, count := range summary.GlobalViolations {
+			fmt.Printf("  • %s: %d occurrences\n", vType, count)
+		}
 	}
 }
 
