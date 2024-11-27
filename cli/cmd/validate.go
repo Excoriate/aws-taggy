@@ -2,8 +2,10 @@ package cmd
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/Excoriate/aws-taggy/cli/internal/output"
+	"github.com/Excoriate/aws-taggy/cli/internal/tui"
 	"github.com/Excoriate/aws-taggy/pkg/configuration"
 	"github.com/Excoriate/aws-taggy/pkg/o11y"
 )
@@ -23,15 +25,6 @@ func (v *ValidateCmd) Run() error {
 
 	// Initialize configuration loader and validator
 	loader := configuration.NewTaggyScanConfigLoader()
-	fileValidator, err := configuration.NewConfigFileValidator(v.Config)
-	if err != nil {
-		return fmt.Errorf("failed to initialize file validator: %w", err)
-	}
-
-	// Validate file first
-	if err := fileValidator.Validate(); err != nil {
-		return fmt.Errorf("file validation failed: %w", err)
-	}
 
 	// Load configuration
 	cfg, err := loader.LoadConfig(v.Config)
@@ -97,7 +90,7 @@ func (v *ValidateCmd) Run() error {
 
 	// Handle clipboard if requested
 	if v.Clipboard {
-		if err := output.CopyToClipboard(result); err != nil {
+		if err := output.WriteToClipboard(result); err != nil {
 			return fmt.Errorf("failed to copy to clipboard: %w", err)
 		}
 		fmt.Println("✅ Validation result copied to clipboard!")
@@ -113,9 +106,49 @@ func (v *ValidateCmd) Run() error {
 
 	// If table view is requested
 	if v.Table {
-		return output.RenderDetailedTables(result)
+		// Prepare table data
+		tableData := [][]string{
+			{"Configuration File", v.Config},
+			{"Validation Status", result.Status},
+			{"Version", result.Version},
+			{"Compliance Levels", strings.Join(result.ComplianceLevels, ", ")},
+		}
+
+		// Add resources information
+		tableData = append(tableData,
+			[]string{"Total Resources", fmt.Sprintf("%d", result.Resources.Total)},
+			[]string{"Enabled Resources", fmt.Sprintf("%d", result.Resources.Enabled)},
+			[]string{"Enabled Services", strings.Join(result.Resources.Services, ", ")},
+		)
+
+		// Add global config information
+		tableData = append(tableData,
+			[]string{"Minimum Required Tags", fmt.Sprintf("%d", result.GlobalConfig.MinRequiredTags)},
+			[]string{"Required Tags", strings.Join(result.GlobalConfig.RequiredTags, ", ")},
+			[]string{"Compliance Level", result.GlobalConfig.ComplianceLevel},
+			[]string{"Batch Size", fmt.Sprintf("%d", result.GlobalConfig.BatchSize)},
+		)
+
+		// Add warnings if any
+		if len(result.Warnings) > 0 {
+			tableData = append(tableData,
+				[]string{"Warnings", strings.Join(result.Warnings, "\n")},
+			)
+		}
+
+		// Render table
+		tableOpts := tui.TableOptions{
+			Title: "Configuration Validation Results",
+			Columns: []tui.Column{
+				{Title: "Property", Width: 30, Flexible: true},
+				{Title: "Value", Width: 50, Flexible: true},
+			},
+			AutoWidth: true,
+		}
+
+		return tui.RenderTable(tableOpts, tableData)
 	}
 
 	// Default console output
-	return output.RenderDefaultOutput(result)
+	return output.RenderDefaultOutput(&result)
 }

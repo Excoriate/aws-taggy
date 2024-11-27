@@ -18,7 +18,6 @@ type RootCmd struct {
 	Debug   bool `help:"Enable debug mode"`
 
 	// Subcommands
-	Scan       ScanCmd       `cmd:"" help:"Scan AWS resources for tag compliance"`
 	Discover   DiscoverCmd   `cmd:"" help:"Discover AWS resources"`
 	Config     ConfigCmd     `cmd:"" help:"Configuration management commands"`
 	Fetch      FetchCmd      `cmd:"" help:"Fetch specific resource details"`

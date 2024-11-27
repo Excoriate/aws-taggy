@@ -8,6 +8,28 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// ComplianceResult represents a single tag compliance validation result
+type ComplianceResult struct {
+	IsCompliant     bool              `json:"is_compliant" yaml:"is_compliant"`
+	ResourceTags    map[string]string `json:"resource_tags" yaml:"resource_tags"`
+	Violations      []Violation       `json:"violations,omitempty" yaml:"violations,omitempty"`
+	ComplianceLevel string            `json:"compliance_level,omitempty" yaml:"compliance_level,omitempty"`
+}
+
+// Violation represents a specific tag compliance violation
+type Violation struct {
+	Type    string `json:"type" yaml:"type"`
+	Message string `json:"message" yaml:"message"`
+}
+
+// ComplianceSummary provides an overview of compliance results
+type ComplianceSummary struct {
+	TotalResources        int            `json:"total_resources" yaml:"total_resources"`
+	CompliantResources    int            `json:"compliant_resources" yaml:"compliant_resources"`
+	NonCompliantResources int            `json:"non_compliant_resources" yaml:"non_compliant_resources"`
+	GlobalViolations      map[string]int `json:"global_violations,omitempty" yaml:"global_violations,omitempty"`
+}
+
 // Format represents the supported output formats
 type Format string
 
@@ -46,21 +68,21 @@ func (f *Formatter) IsStructured() bool {
 func (f *Formatter) Output(data interface{}) error {
 	switch f.Format {
 	case FormatJSON:
-		return f.outputJSON(data)
+		return outputJSON(data)
 	case FormatYAML:
-		return f.outputYAML(data)
+		return outputYAML(data)
 	default:
 		return fmt.Errorf("unsupported output format: %s", f.Format)
 	}
 }
 
-func (f *Formatter) outputJSON(data interface{}) error {
+func outputJSON(data interface{}) error {
 	encoder := json.NewEncoder(os.Stdout)
 	encoder.SetIndent("", "  ")
 	return encoder.Encode(data)
 }
 
-func (f *Formatter) outputYAML(data interface{}) error {
+func outputYAML(data interface{}) error {
 	encoder := yaml.NewEncoder(os.Stdout)
 	encoder.SetIndent(2)
 	return encoder.Encode(data)

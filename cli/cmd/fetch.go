@@ -85,7 +85,7 @@ func (t *TagsCmd) Run() error {
 
 		// If clipboard flag is set, copy to clipboard
 		if t.Clipboard {
-			if err := output.CopyToClipboard(result); err != nil {
+			if err := output.WriteToClipboard(result); err != nil {
 				return fmt.Errorf("failed to copy to clipboard: %w", err)
 			}
 			fmt.Println("✅ Resource tags copied to clipboard!")
@@ -96,31 +96,23 @@ func (t *TagsCmd) Run() error {
 	}
 
 	// Prepare table data
-	type TagRow struct {
-		Key   string
-		Value string
-	}
-
-	var tagRows []TagRow
+	tableData := make([][]string, 0, len(resource.Tags))
 	for key, value := range resource.Tags {
-		tagRows = append(tagRows, TagRow{
-			Key:   key,
-			Value: value,
-		})
+		tableData = append(tableData, []string{key, value})
 	}
 
-	// Create and render table
+	// Create and render table for tags
 	tableOpts := tui.TableOptions{
 		Title: fmt.Sprintf("🏷️  Tags for %s", shortenARN(t.ARN)),
 		Columns: []tui.Column{
-			{Title: "Key", Key: "Key", Width: 30, Flexible: true},
-			{Title: "Value", Key: "Value", Width: 50, Flexible: true},
+			{Title: "Key", Width: 30, Flexible: true},
+			{Title: "Value", Width: 50, Flexible: true},
 		},
 		FlexibleColumns: true,
+		AutoWidth:       true,
 	}
 
-	tableModel := tui.NewTableModel(tableOpts, tagRows)
-	return tableModel.Render()
+	return tui.RenderTable(tableOpts, tableData)
 }
 
 // Run implements the info fetch logic
@@ -160,7 +152,7 @@ func (i *InfoCmd) Run() error {
 	if formatter.IsStructured() {
 		// If clipboard flag is set, copy to clipboard
 		if i.Clipboard {
-			if err := output.CopyToClipboard(resource); err != nil {
+			if err := output.WriteToClipboard(resource); err != nil {
 				return fmt.Errorf("failed to copy to clipboard: %w", err)
 			}
 			fmt.Println("✅ Resource information copied to clipboard!")
@@ -171,41 +163,32 @@ func (i *InfoCmd) Run() error {
 	}
 
 	// Prepare table data for resource details
-	type DetailRow struct {
-		Property string
-		Value    string
+	tableData := [][]string{
+		{"ID", resource.ID},
+		{"Type", resource.Type},
+		{"Region", resource.Region},
+		{"Provider", resource.Provider},
+		{"Tag Count", fmt.Sprintf("%d", len(resource.Tags))},
+		{"ARN", resource.Details.ARN},
 	}
-
-	var detailRows []DetailRow
-	detailRows = append(detailRows,
-		DetailRow{Property: "ID", Value: resource.ID},
-		DetailRow{Property: "Type", Value: resource.Type},
-		DetailRow{Property: "Region", Value: resource.Region},
-		DetailRow{Property: "Provider", Value: resource.Provider},
-		DetailRow{Property: "Tag Count", Value: fmt.Sprintf("%d", len(resource.Tags))},
-		DetailRow{Property: "ARN", Value: resource.Details.ARN},
-	)
 
 	// Add any additional properties from Details.Properties
 	for k, v := range resource.Details.Properties {
-		detailRows = append(detailRows, DetailRow{
-			Property: k,
-			Value:    fmt.Sprintf("%v", v),
-		})
+		tableData = append(tableData, []string{k, fmt.Sprintf("%v", v)})
 	}
 
-	// Create and render table
+	// Create and render table for resource details
 	tableOpts := tui.TableOptions{
 		Title: fmt.Sprintf("ℹ️  Resource Details for %s", shortenARN(i.ARN)),
 		Columns: []tui.Column{
-			{Title: "Property", Key: "Property", Width: 20},
-			{Title: "Value", Key: "Value", Width: 60, Flexible: true},
+			{Title: "Property", Width: 20},
+			{Title: "Value", Width: 60, Flexible: true},
 		},
 		FlexibleColumns: true,
+		AutoWidth:       true,
 	}
 
-	tableModel := tui.NewTableModel(tableOpts, detailRows)
-	return tableModel.Render()
+	return tui.RenderTable(tableOpts, tableData)
 }
 
 // Helper functions

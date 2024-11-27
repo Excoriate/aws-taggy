@@ -101,7 +101,7 @@ func (g *GenerateCmd) Run() error {
 	// Handle output based on the selected method
 	switch g.Output {
 	case "clipboard":
-		return output.CopyToClipboard(sampleConfig)
+		return output.WriteToClipboard(sampleConfig)
 	case "file":
 		return generateConfigFile(g, sampleConfig)
 	default:

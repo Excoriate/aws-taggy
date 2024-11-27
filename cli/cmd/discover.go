@@ -181,7 +181,7 @@ func (d *DiscoverCmd) discoverResources(client *taggy.TaggyClient, logger *o11y.
 
 		// If clipboard flag is set, copy to clipboard
 		if d.Clipboard {
-			if err := output.CopyToClipboard(result); err != nil {
+			if err := output.WriteToClipboard(result); err != nil {
 				return fmt.Errorf("failed to copy to clipboard: %w", err)
 			}
 			logger.Info("✅ Resource discovery results copied to clipboard!")
@@ -193,18 +193,19 @@ func (d *DiscoverCmd) discoverResources(client *taggy.TaggyClient, logger *o11y.
 
 	// Default table output
 	columns := []tui.Column{
-		{Title: "Resource", Key: "ID", Width: 30, Flexible: true},
-		{Title: "Region", Key: "Region", Width: 15},
-		{Title: "Has Tags", Key: "HasTags", Width: 10},
-		{Title: "Tag Count", Key: "TagCount", Width: 10},
+		{Title: "Resource", Key: "ID", Width: 60, Flexible: true, Align: "left"},
+		{Title: "Region", Key: "Region", Width: 15, Align: "center"},
+		{Title: "Has Tags", Key: "HasTags", Width: 12, Align: "center"},
+		{Title: "Tag Count", Key: "TagCount", Width: 12, Align: "center"},
 	}
 
 	if d.WithARN {
 		columns = append(columns, tui.Column{
 			Title:    "ARN",
 			Key:      "ARN",
-			Width:    50,
-			Flexible: true,
+			Width:    100,
+			Flexible: false,
+			Align:    "left",
 		})
 	}
 
@@ -219,8 +220,23 @@ func (d *DiscoverCmd) discoverResources(client *taggy.TaggyClient, logger *o11y.
 		Title:           title,
 		Columns:         columns,
 		FlexibleColumns: true,
+		AutoWidth:       true,
 	}
 
-	tableModel := tui.NewTableModel(tableOpts, resourceRows)
-	return tableModel.Render()
+	// Convert resourceRows to [][]string for RenderTable
+	tableData := make([][]string, len(resourceRows))
+	for i, row := range resourceRows {
+		rowData := []string{
+			row.ID,
+			row.Region,
+			fmt.Sprintf("%v", row.HasTags),
+			fmt.Sprintf("%d", row.TagCount),
+		}
+		if d.WithARN {
+			rowData = append(rowData, row.ARN)
+		}
+		tableData[i] = rowData
+	}
+
+	return tui.RenderTable(tableOpts, tableData)
 }

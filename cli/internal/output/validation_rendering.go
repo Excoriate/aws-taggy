@@ -6,13 +6,18 @@ import (
 	"github.com/Excoriate/aws-taggy/cli/internal/tui"
 )
 
-// RenderDetailedTables renders a detailed table view of the validation result
-func RenderDetailedTables(result ValidationResult) error {
+// This file provides additional rendering logic for validation results
+// without duplicating the core rendering functions
+
+// RenderDetailedTables provides an enhanced table-based rendering of validation results
+func renderDetailedValidationTables(result *ValidationResult) error {
+	// Validate input
+	if result == nil {
+		return fmt.Errorf("validation result cannot be nil")
+	}
+
 	// General Information Table
-	generalInfo := []struct {
-		Property string
-		Value    string
-	}{
+	generalInfo := [][]string{
 		{"Status", result.Status},
 		{"Configuration File", result.File},
 		{"Version", result.Version},
@@ -24,21 +29,18 @@ func RenderDetailedTables(result ValidationResult) error {
 	generalTableOpts := tui.TableOptions{
 		Title: "📋 General Configuration Information",
 		Columns: []tui.Column{
-			{Title: "Property", Key: "Property", Width: 20},
-			{Title: "Value", Key: "Value", Width: 50, Flexible: true},
+			{Title: "Property", Width: 20},
+			{Title: "Value", Width: 50, Flexible: true},
 		},
 		FlexibleColumns: true,
 	}
 
-	if err := tui.NewTableModel(generalTableOpts, generalInfo).Render(); err != nil {
+	if err := tui.RenderTable(generalTableOpts, generalInfo); err != nil {
 		return err
 	}
 
 	// Global Configuration Table
-	globalConfig := []struct {
-		Setting string
-		Value   string
-	}{
+	globalConfig := [][]string{
 		{"Enabled", fmt.Sprintf("%v", result.GlobalConfig.Enabled)},
 		{"Minimum Required Tags", fmt.Sprintf("%d", result.GlobalConfig.MinRequiredTags)},
 		{"Required Tags", fmt.Sprintf("%v", result.GlobalConfig.RequiredTags)},
@@ -51,104 +53,52 @@ func RenderDetailedTables(result ValidationResult) error {
 	globalTableOpts := tui.TableOptions{
 		Title: "🌍 Global Tag Configuration",
 		Columns: []tui.Column{
-			{Title: "Setting", Key: "Setting", Width: 25},
-			{Title: "Value", Key: "Value", Width: 45, Flexible: true},
+			{Title: "Setting", Width: 25},
+			{Title: "Value", Width: 45, Flexible: true},
 		},
 		FlexibleColumns: true,
 	}
 
-	if err := tui.NewTableModel(globalTableOpts, globalConfig).Render(); err != nil {
+	if err := tui.RenderTable(globalTableOpts, globalConfig); err != nil {
 		return err
 	}
 
 	// Resources Table
-	resources := []struct {
-		Service string
-		Status  string
-	}{}
-
+	resources := [][]string{}
 	for _, service := range result.Resources.Services {
-		resources = append(resources, struct {
-			Service string
-			Status  string
-		}{
-			Service: service,
-			Status:  "Enabled",
-		})
+		resources = append(resources, []string{service, "Enabled"})
 	}
 
 	resourcesTableOpts := tui.TableOptions{
 		Title: "🔍 Configured Resources",
 		Columns: []tui.Column{
-			{Title: "Service", Key: "Service", Width: 20},
-			{Title: "Status", Key: "Status", Width: 10},
+			{Title: "Service", Width: 20},
+			{Title: "Status", Width: 10},
 		},
 		FlexibleColumns: true,
 	}
 
-	if err := tui.NewTableModel(resourcesTableOpts, resources).Render(); err != nil {
+	if err := tui.RenderTable(resourcesTableOpts, resources); err != nil {
 		return err
 	}
 
 	// Display warnings if any
 	if len(result.Warnings) > 0 {
-		warnings := []struct {
-			Warning string
-		}{}
+		warnings := [][]string{}
 		for _, w := range result.Warnings {
-			warnings = append(warnings, struct{ Warning string }{Warning: w})
+			warnings = append(warnings, []string{w})
 		}
 
 		warningsTableOpts := tui.TableOptions{
 			Title: "⚠️  Warnings",
 			Columns: []tui.Column{
-				{Title: "Warning", Key: "Warning", Width: 70, Flexible: true},
+				{Title: "Warning", Width: 70, Flexible: true},
 			},
 			FlexibleColumns: true,
 		}
 
-		if err := tui.NewTableModel(warningsTableOpts, warnings).Render(); err != nil {
+		if err := tui.RenderTable(warningsTableOpts, warnings); err != nil {
 			return err
-		}
-	}
-
-	return nil
-}
-
-// RenderDefaultOutput renders a default text-based output of the validation result
-func RenderDefaultOutput(result ValidationResult) error {
-	if !result.Valid {
-		fmt.Printf("❌ Configuration validation failed for %s\n\n", result.File)
-		fmt.Println("Errors:")
-		for _, err := range result.Errors {
-			fmt.Printf("  - %s\n", err)
-		}
-		return fmt.Errorf("configuration is invalid")
-	}
-
-	fmt.Printf("✅ Configuration file %s is valid\n\n", result.File)
-	fmt.Printf("Version: %s\n\n", result.Version)
-
-	fmt.Println("Global Configuration:")
-	fmt.Printf("  Enabled: %v\n", result.GlobalConfig.Enabled)
-	fmt.Printf("  Minimum Required Tags: %d\n", result.GlobalConfig.MinRequiredTags)
-	fmt.Printf("  Required Tags: %v\n", result.GlobalConfig.RequiredTags)
-	fmt.Printf("  Forbidden Tags: %v\n", result.GlobalConfig.ForbiddenTags)
-	fmt.Printf("  Compliance Level: %s\n", result.GlobalConfig.ComplianceLevel)
-	fmt.Printf("  Batch Size: %d\n", result.GlobalConfig.BatchSize)
-	fmt.Printf("  Notifications Setup: %v\n\n", result.GlobalConfig.NotificationsSetup)
-
-	fmt.Println("Resource Summary:")
-	fmt.Printf("  Total Resources: %d\n", result.Resources.Total)
-	fmt.Printf("  Enabled Resources: %d\n", result.Resources.Enabled)
-	fmt.Printf("  Services: %v\n\n", result.Resources.Services)
-
-	fmt.Printf("Compliance Levels: %v\n\n", result.ComplianceLevels)
-
-	if len(result.Warnings) > 0 {
-		fmt.Println("⚠️  Warnings:")
-		for _, warning := range result.Warnings {
-			fmt.Printf("  - %s\n", warning)
 		}
 	}
 

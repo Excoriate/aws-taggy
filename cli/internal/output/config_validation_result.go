@@ -22,5 +22,7 @@ type ValidationResult struct {
 		BatchSize          int      `json:"batch_size" yaml:"batch_size"`
 		NotificationsSetup bool     `json:"notifications_setup" yaml:"notifications_setup"`
 	} `json:"global_config" yaml:"global_config"`
-	ComplianceLevels []string `json:"compliance_levels" yaml:"compliance_levels"`
+	ComplianceLevels  []string            `json:"compliance_levels" yaml:"compliance_levels"`
+	ComplianceResults []*ComplianceResult `json:"compliance_results,omitempty" yaml:"compliance_results,omitempty"`
+	ComplianceSummary *ComplianceSummary  `json:"compliance_summary,omitempty" yaml:"compliance_summary,omitempty"`
 }

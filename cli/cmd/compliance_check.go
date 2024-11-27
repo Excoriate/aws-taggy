@@ -4,6 +4,8 @@ import (
 	"fmt"
 
 	"github.com/Excoriate/aws-taggy/cli/internal/output"
+	"github.com/Excoriate/aws-taggy/cli/internal/tui"
+	"github.com/Excoriate/aws-taggy/pkg/compliance"
 	"github.com/Excoriate/aws-taggy/pkg/configuration"
 	"github.com/Excoriate/aws-taggy/pkg/o11y"
 )
@@ -16,7 +18,7 @@ type CheckCmd struct {
 	Clipboard bool   `help:"Copy output to clipboard" default:"false"`
 }
 
-// Run validates the configuration file and prepares for compliance checking
+// Run validates the configuration file and performs compliance checks
 func (c *CheckCmd) Run() error {
 	logger := o11y.DefaultLogger()
 	logger.Info(fmt.Sprintf("🔍 Checking compliance configuration file: %s", c.Config))
@@ -40,12 +42,46 @@ func (c *CheckCmd) Run() error {
 	}
 
 	// Initialize config validator
-	validator, err := configuration.NewConfigValidator(cfg)
+	configValidator, err := configuration.NewConfigValidator(cfg)
 	if err != nil {
 		return fmt.Errorf("failed to initialize config validator: %w", err)
 	}
 
-	// Prepare validation result
+	// Perform configuration validation
+	if err := configValidator.Validate(); err != nil {
+		return fmt.Errorf("configuration validation failed: %w", err)
+	}
+
+	// Create compliance validator
+	complianceValidator := compliance.NewTagValidator(cfg)
+
+	// Prepare example test tags for demonstration
+	testTags := []map[string]string{
+		{
+			"Environment": "production",
+			"Owner":       "team@company.com",
+		},
+		{
+			"Environment": "INVALID-ENV",
+			"Owner":       "invalid-email",
+		},
+		{
+			// Missing required tags
+		},
+	}
+
+	// Validate tags and collect results
+	var complianceResults []*compliance.ComplianceResult
+	for _, tags := range testTags {
+		result := complianceValidator.ValidateTags(tags)
+
+		complianceResults = append(complianceResults, result)
+	}
+
+	// Generate compliance summary
+	summary := compliance.GenerateSummary(complianceResults)
+
+	// Prepare validation result for output
 	result := output.ValidationResult{
 		File:    c.Config,
 		Valid:   true,
@@ -53,51 +89,9 @@ func (c *CheckCmd) Run() error {
 		Version: cfg.Version,
 	}
 
-	// Perform validation
-	if err := validator.Validate(); err != nil {
-		result.Valid = false
-		result.Status = "invalid"
-		result.Errors = append(result.Errors, err.Error())
-	}
-
-	// Collect resource statistics and global config
-	result.GlobalConfig.Enabled = cfg.Global.Enabled
-	result.GlobalConfig.MinRequiredTags = cfg.Global.TagCriteria.MinimumRequiredTags
-	result.GlobalConfig.RequiredTags = cfg.Global.TagCriteria.RequiredTags
-	result.GlobalConfig.ForbiddenTags = cfg.Global.TagCriteria.ForbiddenTags
-	result.GlobalConfig.ComplianceLevel = cfg.Global.TagCriteria.ComplianceLevel
-	if cfg.AWS.BatchSize != nil {
-		result.GlobalConfig.BatchSize = *cfg.AWS.BatchSize
-	} else {
-		result.GlobalConfig.BatchSize = 20 // Default batch size
-	}
-	result.GlobalConfig.NotificationsSetup = cfg.Notifications.Slack.Enabled || cfg.Notifications.Email.Enabled
-
-	// Collect compliance levels
-	for level := range cfg.ComplianceLevels {
-		result.ComplianceLevels = append(result.ComplianceLevels, level)
-	}
-
-	// Collect resource information
-	for resourceType, resourceConfig := range cfg.Resources {
-		result.Resources.Total++
-		if resourceConfig.Enabled {
-			result.Resources.Enabled++
-			result.Resources.Services = append(result.Resources.Services, resourceType)
-		}
-	}
-
-	// Add warnings for potential issues
-	if result.Resources.Enabled == 0 {
-		result.Warnings = append(result.Warnings, "No resources are enabled for scanning")
-	}
-	if !result.GlobalConfig.NotificationsSetup {
-		result.Warnings = append(result.Warnings, "No notification channels are configured")
-	}
-
 	// Handle clipboard if requested
 	if c.Clipboard {
-		if err := output.CopyToClipboard(result); err != nil {
+		if err := output.WriteToClipboard(result); err != nil {
 			return fmt.Errorf("failed to copy to clipboard: %w", err)
 		}
 		fmt.Println("✅ Compliance check result copied to clipboard!")
@@ -113,9 +107,71 @@ func (c *CheckCmd) Run() error {
 
 	// If table view is requested
 	if c.Table {
-		return output.RenderDetailedTables(result)
+		// Prepare table data
+		tableData := [][]string{}
+		for _, compResult := range complianceResults {
+			tagsStr := formatTags(compResult.ResourceTags)
+			complianceStatus := "✅ Compliant"
+			if !compResult.IsCompliant {
+				complianceStatus = "❌ Non-Compliant"
+			}
+
+			violationsStr := formatViolations(compResult.Violations)
+			tableData = append(tableData, []string{tagsStr, complianceStatus, violationsStr})
+		}
+
+		// Add summary row
+		tableData = append(tableData, []string{
+			"Summary",
+			fmt.Sprintf("Total: %d", summary.TotalResources),
+			fmt.Sprintf("Compliant: %d, Non-Compliant: %d", summary.CompliantResources, summary.NonCompliantResources),
+		})
+
+		// Render table
+		tableOpts := tui.TableOptions{
+			Title: "Compliance Check Results",
+			Columns: []tui.Column{
+				{Title: "Resource Tags", Width: 40, Flexible: true},
+				{Title: "Status", Width: 20},
+				{Title: "Details", Width: 40, Flexible: true},
+			},
+			AutoWidth: true,
+		}
+
+		return tui.RenderTable(tableOpts, tableData)
 	}
 
 	// Default console output
-	return output.RenderDefaultOutput(result)
+	return output.RenderDefaultOutput(&result)
+}
+
+// Helper functions
+func formatTags(tags map[string]string) string {
+	if len(tags) == 0 {
+		return "No Tags"
+	}
+
+	var result string
+	for k, v := range tags {
+		if result != "" {
+			result += "\n"
+		}
+		result += fmt.Sprintf("%s: %s", k, v)
+	}
+	return result
+}
+
+func formatViolations(violations []compliance.Violation) string {
+	if len(violations) == 0 {
+		return "No Violations"
+	}
+
+	var result string
+	for _, v := range violations {
+		if result != "" {
+			result += "\n"
+		}
+		result += fmt.Sprintf("%s: %s", v.Type, v.Message)
+	}
+	return result
 }

@@ -2,10 +2,9 @@ package tui
 
 import (
 	"fmt"
-	"reflect"
+	"strings"
 
 	"github.com/charmbracelet/bubbles/table"
-	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
 
@@ -15,14 +14,7 @@ type Column struct {
 	Key      string
 	Width    int
 	Flexible bool
-}
-
-// TableStyle defines the styling for the TUI table
-type TableStyle struct {
-	BaseStyle   lipgloss.Style
-	HeaderStyle lipgloss.Style
-	RowStyle    lipgloss.Style
-	SelectedRow lipgloss.Style
+	Align    string // "left", "center", or "right"
 }
 
 // TableOptions contains configuration options for the table
@@ -32,6 +24,15 @@ type TableOptions struct {
 	Style           *TableStyle
 	MaxHeight       int
 	FlexibleColumns bool
+	AutoWidth       bool
+}
+
+// TableStyle defines the styling for the TUI table
+type TableStyle struct {
+	BaseStyle   lipgloss.Style
+	HeaderStyle lipgloss.Style
+	RowStyle    lipgloss.Style
+	SelectedRow lipgloss.Style
 }
 
 // DefaultTableStyle provides a clean, modern default styling
@@ -52,176 +53,197 @@ func DefaultTableStyle() TableStyle {
 	}
 }
 
-// TableModel represents the state of a TUI table
-type TableModel struct {
-	table   table.Model
-	style   TableStyle
-	title   string
-	columns []Column
-	data    interface{}
-	err     error
-}
+// calculateColumnWidths determines the optimal width for each column based on content
+func calculateColumnWidths(columns []Column, data [][]string) []int {
+	widths := make([]int, len(columns))
 
-// NewTableModel creates a new TUI table model with flexible data handling
-func NewTableModel(opts TableOptions, data interface{}) TableModel {
-	// Use default style if not provided
-	tableStyle := DefaultTableStyle()
-	if opts.Style != nil {
-		tableStyle = *opts.Style
+	// Initialize with header lengths
+	for i, col := range columns {
+		widths[i] = len(col.Title)
 	}
 
-	// Set default max height if not provided
-	if opts.MaxHeight == 0 {
-		opts.MaxHeight = 10
-	}
-
-	// Convert data to rows first to analyze content width
-	rows := extractRows(opts.Columns, data)
-
-	// Calculate column widths if flexible columns are enabled
-	tableColumns := make([]table.Column, len(opts.Columns))
-	for i, col := range opts.Columns {
-		width := col.Width
-
-		if opts.FlexibleColumns && col.Flexible {
-			// Calculate maximum content width for this column
-			maxWidth := len(col.Title) // Start with header width
-			for _, row := range rows {
-				if len(row[i]) > maxWidth {
-					maxWidth = len(row[i])
+	// Check content lengths
+	for _, row := range data {
+		for i, cell := range row {
+			if i < len(widths) {
+				cellWidth := len(cell)
+				if cellWidth > widths[i] {
+					widths[i] = cellWidth
 				}
 			}
-			// Add padding and ensure minimum width
-			width = maxWidth + 2 // Add some padding
-			if width < col.Width {
-				width = col.Width // Use specified width as minimum
+		}
+	}
+
+	// Add padding
+	for i := range widths {
+		widths[i] += 2 // Add minimal padding
+	}
+
+	return widths
+}
+
+// padString ensures a string fits the given width with proper padding
+func padString(s string, width int, align string) string {
+	sLen := len(s)
+	if sLen >= width {
+		if align == "right" {
+			return s[sLen-width:]
+		}
+		return s[:width]
+	}
+
+	spaces := width - sLen
+	switch align {
+	case "right":
+		return strings.Repeat(" ", spaces) + s
+	case "center":
+		left := spaces / 2
+		right := spaces - left
+		return strings.Repeat(" ", left) + s + strings.Repeat(" ", right)
+	default: // left align
+		return s + strings.Repeat(" ", spaces)
+	}
+}
+
+// RenderTable creates a generic table for rendering data
+func RenderTable(opts TableOptions, data [][]string) error {
+	if len(opts.Columns) == 0 {
+		return fmt.Errorf("no columns defined")
+	}
+
+	// Ensure all data rows have the correct number of columns
+	normalizedData := make([][]string, len(data))
+	for i, row := range data {
+		normalizedRow := make([]string, len(opts.Columns))
+		for j := range opts.Columns {
+			if j < len(row) {
+				normalizedRow[j] = strings.TrimSpace(row[j]) // Trim spaces to ensure clean alignment
+			} else {
+				normalizedRow[j] = "" // Fill missing columns with empty strings
+			}
+		}
+		normalizedData[i] = normalizedRow
+	}
+
+	var columns []table.Column
+	var columnWidths []int
+
+	// Calculate column widths
+	if opts.AutoWidth {
+		columnWidths = calculateColumnWidths(opts.Columns, normalizedData)
+	} else {
+		columnWidths = make([]int, len(opts.Columns))
+		for i, col := range opts.Columns {
+			if col.Width > 0 {
+				columnWidths[i] = col.Width
+			} else {
+				columnWidths[i] = 20 // Default width
+			}
+		}
+	}
+
+	// Create columns with proper alignment
+	for i, col := range opts.Columns {
+		width := columnWidths[i]
+		if col.Width > 0 {
+			width = col.Width // Use specified width for fixed-width columns
+		}
+
+		// Determine alignment for the column
+		align := col.Align
+		if align == "" {
+			// Default alignments based on content type
+			switch {
+			case strings.Contains(strings.ToLower(col.Title), "count"),
+				strings.Contains(strings.ToLower(col.Title), "size"),
+				strings.Contains(strings.ToLower(col.Title), "number"):
+				align = "right"
+			case strings.Contains(strings.ToLower(col.Title), "status"),
+				strings.Contains(strings.ToLower(col.Title), "tags"),
+				strings.Contains(strings.ToLower(col.Title), "type"):
+				align = "center"
+			default:
+				align = "left"
 			}
 		}
 
-		if width == 0 {
-			width = 20 // Default width
-		}
-
-		tableColumns[i] = table.Column{
-			Title: col.Title,
+		columns = append(columns, table.Column{
+			Title: padString(strings.TrimSpace(col.Title), width, align),
 			Width: width,
-		}
+		})
 	}
 
-	// Create table with calculated widths
+	// Convert string slices to table.Row with proper padding and alignment
+	rows := make([]table.Row, len(normalizedData))
+	for i, rowData := range normalizedData {
+		paddedRow := make([]string, len(rowData))
+		for j, cell := range rowData {
+			align := opts.Columns[j].Align
+			if align == "" {
+				// Use same alignment logic as headers
+				switch {
+				case strings.Contains(strings.ToLower(opts.Columns[j].Title), "count"),
+					strings.Contains(strings.ToLower(opts.Columns[j].Title), "size"),
+					strings.Contains(strings.ToLower(opts.Columns[j].Title), "number"):
+					align = "right"
+				case strings.Contains(strings.ToLower(opts.Columns[j].Title), "status"),
+					strings.Contains(strings.ToLower(opts.Columns[j].Title), "tags"),
+					strings.Contains(strings.ToLower(opts.Columns[j].Title), "type"):
+					align = "center"
+				default:
+					align = "left"
+				}
+			}
+
+			width := columnWidths[j]
+			if opts.Columns[j].Width > 0 {
+				width = opts.Columns[j].Width // Use specified width for fixed-width columns
+			}
+
+			paddedRow[j] = padString(strings.TrimSpace(cell), width, align)
+		}
+		rows[i] = table.Row(paddedRow)
+	}
+
 	t := table.New(
-		table.WithColumns(tableColumns),
+		table.WithColumns(columns),
 		table.WithRows(rows),
 		table.WithFocused(true),
-		table.WithHeight(opts.MaxHeight),
+		table.WithHeight(len(rows)),
 	)
 
-	t.SetStyles(table.Styles{
-		Header:   tableStyle.HeaderStyle,
-		Cell:     tableStyle.RowStyle,
-		Selected: tableStyle.SelectedRow,
-	})
+	s := table.DefaultStyles()
+	s.Header = s.Header.
+		BorderStyle(lipgloss.NormalBorder()).
+		BorderForeground(lipgloss.Color("240")).
+		Bold(true)
+	s.Selected = s.Selected.
+		Foreground(lipgloss.Color("229")).
+		Background(lipgloss.Color("57"))
 
-	return TableModel{
-		table:   t,
-		style:   tableStyle,
-		title:   opts.Title,
-		columns: opts.Columns,
-		data:    data,
-	}
-}
+	t.SetStyles(s)
 
-// extractRows converts the data into table rows based on column definitions
-func extractRows(columns []Column, data interface{}) []table.Row {
-	val := reflect.ValueOf(data)
-	if val.Kind() == reflect.Ptr {
-		val = val.Elem()
+	// Print title if provided
+	if opts.Title != "" {
+		fmt.Println(opts.Title)
 	}
 
-	var rows []table.Row
-	switch val.Kind() {
-	case reflect.Slice:
-		for i := 0; i < val.Len(); i++ {
-			item := val.Index(i)
-			row := extractRow(columns, item)
-			rows = append(rows, row)
-		}
-	case reflect.Map:
-		for _, key := range val.MapKeys() {
-			item := val.MapIndex(key)
-			row := extractRow(columns, item)
-			rows = append(rows, row)
-		}
-	}
+	// Render table
+	fmt.Println(t.View())
 
-	return rows
-}
-
-// extractRow creates a single row from an item based on column definitions
-func extractRow(columns []Column, item reflect.Value) table.Row {
-	row := make(table.Row, len(columns))
-	for i, col := range columns {
-		value := extractValue(item, col.Key)
-		row[i] = fmt.Sprintf("%v", value)
-	}
-	return row
-}
-
-// extractValue gets a value from an item using the column key
-func extractValue(item reflect.Value, key string) interface{} {
-	if item.Kind() == reflect.Ptr {
-		item = item.Elem()
-	}
-
-	switch item.Kind() {
-	case reflect.Struct:
-		field := item.FieldByName(key)
-		if field.IsValid() {
-			return field.Interface()
-		}
-	case reflect.Map:
-		value := item.MapIndex(reflect.ValueOf(key))
-		if value.IsValid() {
-			return value.Interface()
-		}
-	}
-	return ""
-}
-
-// Init implements tea.Model
-func (m TableModel) Init() tea.Cmd {
 	return nil
 }
 
-// Update implements tea.Model
-func (m TableModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	var cmd tea.Cmd
-	switch msg := msg.(type) {
-	case tea.KeyMsg:
-		switch msg.String() {
-		case "q", "ctrl+c":
-			return m, tea.Quit
-		}
+// FormatMapToRows converts a map to a slice of string slices for table rendering
+func FormatMapToRows(data map[string]string) []string {
+	var rows []string
+	for k, v := range data {
+		rows = append(rows, fmt.Sprintf("%s: %s", k, v))
 	}
-	m.table, cmd = m.table.Update(msg)
-	return m, cmd
+	return rows
 }
 
-// View implements tea.Model
-func (m TableModel) View() string {
-	titleStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("63")).
-		Bold(true).
-		Padding(0, 1)
-
-	return fmt.Sprintf("%s\n%s",
-		titleStyle.Render(m.title),
-		m.style.BaseStyle.Render(m.table.View()))
-}
-
-// Render runs the table UI
-func (m TableModel) Render() error {
-	p := tea.NewProgram(m)
-	_, err := p.Run()
-	return err
+// JoinRows joins multiple rows into a single string
+func JoinRows(rows []string) string {
+	return strings.Join(rows, "\n")
 }
