@@ -32,7 +32,7 @@ func NewTaggyScanConfigLoader() *ConfigLoader {
 //   - error: Any error encountered during loading or validation
 func (l *ConfigLoader) LoadConfig(configPath string) (*TaggyScanConfig, error) {
 	// Validate file path and existence
-	fileValidator, err := NewConfigFileValidator(configPath)
+	fileValidator, err := NewFileValidator(configPath)
 	if err != nil {
 		return nil, fmt.Errorf("invalid configuration file path: %w", err)
 	}
@@ -58,13 +58,13 @@ func (l *ConfigLoader) LoadConfig(configPath string) (*TaggyScanConfig, error) {
 	NormalizeAWSConfig(&parsedCfg.AWS, &parsedCfg.Global)
 
 	// Validate configuration content
-	configValidator, err := NewConfigValidator(parsedCfg)
+	configValidator, err := NewContentValidator(parsedCfg)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create configuration validator: %w", err)
 	}
 
 	// Perform comprehensive configuration validation
-	if err := configValidator.Validate(); err != nil {
+	if err := configValidator.ValidateContent(); err != nil {
 		return nil, fmt.Errorf("configuration validation failed: %w", err)
 	}
 

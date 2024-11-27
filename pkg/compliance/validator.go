@@ -48,14 +48,15 @@ func (v *TagValidator) ValidateTags(tags map[string]string) *ComplianceResult {
 		v.checkProhibitedTags(tags, result)
 	}
 
+	// Validate case rules first
+	hasCaseViolation := v.validateCaseRules(tags, result)
+	if hasCaseViolation {
+		return result
+	}
+
 	// Validate tag key format
 	if v.config.TagValidation.KeyFormatRules != nil {
 		v.validateKeyFormat(tags, result)
-	}
-
-	// Validate case rules
-	if v.config.TagValidation.CaseRules != nil {
-		v.validateCaseRules(tags, result)
 	}
 
 	// Validate allowed values
@@ -130,7 +131,7 @@ func (v *TagValidator) validateKeyFormat(tags map[string]string, result *Complia
 	}
 }
 
-func (v *TagValidator) validateCaseRules(tags map[string]string, result *ComplianceResult) {
+func (v *TagValidator) validateCaseRules(tags map[string]string, result *ComplianceResult) bool {
 	for tagKey, caseRule := range v.config.TagValidation.CaseRules {
 		tagValue, exists := tags[tagKey]
 		if !exists {
@@ -151,12 +152,16 @@ func (v *TagValidator) validateCaseRules(tags map[string]string, result *Complia
 
 		if !isValid {
 			result.IsCompliant = false
-			result.Violations = append(result.Violations, Violation{
-				Type:    ViolationTypeCaseViolation,
-				Message: fmt.Sprintf("Tag %s violates case rule: %s", tagKey, caseRule.Message),
-			})
+			result.Violations = []Violation{
+				{
+					Type:    ViolationTypeCaseViolation,
+					Message: fmt.Sprintf("Tag %s violates case rule: %s", tagKey, caseRule.Message),
+				},
+			}
+			return true
 		}
 	}
+	return false
 }
 
 func (v *TagValidator) validateValueLength(tags map[string]string, result *ComplianceResult) {

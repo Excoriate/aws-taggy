@@ -33,7 +33,7 @@ func (v *ValidateCmd) Run() error {
 	}
 
 	// Initialize config validator
-	validator, err := configuration.NewConfigValidator(cfg)
+	validator, err := configuration.NewContentValidator(cfg)
 	if err != nil {
 		return fmt.Errorf("failed to initialize config validator: %w", err)
 	}
@@ -47,7 +47,7 @@ func (v *ValidateCmd) Run() error {
 	}
 
 	// Perform validation
-	if err := validator.Validate(); err != nil {
+	if err := validator.ValidateContent(); err != nil {
 		result.Valid = false
 		result.Status = "invalid"
 		result.Errors = append(result.Errors, err.Error())

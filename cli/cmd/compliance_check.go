@@ -47,13 +47,13 @@ func (c *CheckCmd) Run() error {
 	}
 
 	// Initialize config validator
-	configValidator, err := configuration.NewConfigValidator(cfg)
+	configValidator, err := configuration.NewContentValidator(cfg)
 	if err != nil {
 		return fmt.Errorf("failed to initialize config validator: %w", err)
 	}
 
 	// Perform configuration validation
-	if err := configValidator.Validate(); err != nil {
+	if err := configValidator.ValidateContent(); err != nil {
 		return fmt.Errorf("configuration validation failed: %w", err)
 	}
 
