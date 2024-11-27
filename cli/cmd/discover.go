@@ -3,8 +3,8 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"time"
 
+	"github.com/Excoriate/aws-taggy/cli/internal/output"
 	"github.com/Excoriate/aws-taggy/cli/internal/tui"
 	"github.com/Excoriate/aws-taggy/pkg/configuration"
 	"github.com/Excoriate/aws-taggy/pkg/o11y"
@@ -17,6 +17,7 @@ type DiscoverCmd struct {
 	Service string `help:"AWS service to discover (e.g., s3, ec2)" required:"true"`
 	Region  string `help:"AWS region to discover resources in" default:"us-east-1"`
 	WithARN bool   `help:"Include ARN in the output"`
+	Output  string `help:"Output format (table|json|yaml)" default:"table" enum:"table,json,yaml"`
 }
 
 // Run method for DiscoverCmd implements the resource discovery logic
@@ -58,7 +59,6 @@ func (d *DiscoverCmd) Run() error {
 // discoverResources performs resource discovery for a specific service and region
 func (d *DiscoverCmd) discoverResources(client *taggy.TaggyClient, logger *o11y.Logger) error {
 	ctx := context.Background()
-	startTime := time.Now()
 
 	logger.Info(fmt.Sprintf("🔍 Discovering %s resources in region %s", d.Service, d.Region))
 
@@ -107,6 +107,31 @@ func (d *DiscoverCmd) discoverResources(client *taggy.TaggyClient, logger *o11y.
 		}
 	}
 
+	// Create output formatter
+	formatter := output.NewFormatter(d.Output)
+
+	// If using structured output (JSON/YAML), prepare the data structure
+	if formatter.IsStructured() {
+		type DiscoveryResult struct {
+			Service         string        `json:"service" yaml:"service"`
+			Region          string        `json:"region" yaml:"region"`
+			TotalResources  int           `json:"total_resources" yaml:"total_resources"`
+			TaggedResources int           `json:"tagged_resources" yaml:"tagged_resources"`
+			Resources       []ResourceRow `json:"resources" yaml:"resources"`
+		}
+
+		result := DiscoveryResult{
+			Service:         d.Service,
+			Region:          d.Region,
+			TotalResources:  totalResources,
+			TaggedResources: resourcesWithTags,
+			Resources:       resourceRows,
+		}
+
+		return formatter.Output(result)
+	}
+
+	// Default table output
 	columns := []tui.Column{
 		{Title: "Resource", Key: "ID", Width: 30, Flexible: true},
 		{Title: "Region", Key: "Region", Width: 15},
@@ -131,22 +156,5 @@ func (d *DiscoverCmd) discoverResources(client *taggy.TaggyClient, logger *o11y.
 	}
 
 	tableModel := tui.NewTableModel(tableOpts, resourceRows)
-
-	// Render table to console
-	if err := tableModel.Render(); err != nil {
-		return fmt.Errorf("failed to render discovery results table: %w", err)
-	}
-
-	// Check for any errors
-	if errors := scannerManager.GetErrors(); len(errors) > 0 {
-		logger.Warn("Discovery completed with the following errors:")
-		for _, err := range errors {
-			logger.Error(err.Error())
-		}
-	}
-
-	duration := time.Since(startTime)
-	logger.Info(fmt.Sprintf("⏱️  Total discovery duration: %v", duration))
-
-	return nil
+	return tableModel.Render()
 }

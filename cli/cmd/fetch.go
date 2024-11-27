@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/Excoriate/aws-taggy/cli/internal/output"
 	"github.com/Excoriate/aws-taggy/cli/internal/tui"
 	"github.com/Excoriate/aws-taggy/pkg/configuration"
 	"github.com/Excoriate/aws-taggy/pkg/o11y"
@@ -20,16 +21,18 @@ type FetchCmd struct {
 
 // TagsCmd represents the fetch tags subcommand
 type TagsCmd struct {
-	ARN     string `help:"ARN of the resource to fetch tags for" required:"true"`
-	Service string `help:"AWS service type (e.g., s3, ec2)" required:"true"`
-	Output  string `help:"Output format (table|json)" default:"table" enum:"table,json"`
+	ARN       string `help:"ARN of the resource to fetch tags for" required:"true"`
+	Service   string `help:"AWS service type (e.g., s3, ec2)" required:"true"`
+	Output    string `help:"Output format (table|json|yaml)" default:"table" enum:"table,json,yaml"`
+	Clipboard bool   `help:"Copy output to clipboard" default:"false"`
 }
 
 // InfoCmd represents the fetch info subcommand
 type InfoCmd struct {
-	ARN     string `help:"ARN of the resource to fetch information for" required:"true"`
-	Service string `help:"AWS service type (e.g., s3, ec2)" required:"true"`
-	Output  string `help:"Output format (table|json)" default:"table" enum:"table,json"`
+	ARN       string `help:"ARN of the resource to fetch information for" required:"true"`
+	Service   string `help:"AWS service type (e.g., s3, ec2)" required:"true"`
+	Output    string `help:"Output format (table|json|yaml)" default:"table" enum:"table,json,yaml"`
+	Clipboard bool   `help:"Copy output to clipboard" default:"false"`
 }
 
 // Run implements the tags fetch logic
@@ -71,9 +74,32 @@ func (t *TagsCmd) Run() error {
 		return fmt.Errorf("failed to fetch resource: %w", err)
 	}
 
-	// Render output based on format
-	if t.Output == "json" {
-		return renderJSON(resource.Tags)
+	// Create output formatter
+	formatter := output.NewFormatter(t.Output)
+
+	if formatter.IsStructured() {
+		type TagsResult struct {
+			Resource string            `json:"resource" yaml:"resource"`
+			ARN      string            `json:"arn" yaml:"arn"`
+			Tags     map[string]string `json:"tags" yaml:"tags"`
+		}
+
+		result := TagsResult{
+			Resource: resource.ID,
+			ARN:      t.ARN,
+			Tags:     resource.Tags,
+		}
+
+		// If clipboard flag is set, copy to clipboard
+		if t.Clipboard {
+			if err := output.CopyToClipboard(result); err != nil {
+				return fmt.Errorf("failed to copy to clipboard: %w", err)
+			}
+			fmt.Println("✅ Resource tags copied to clipboard!")
+			return nil
+		}
+
+		return formatter.Output(result)
 	}
 
 	// Prepare table data
@@ -140,8 +166,20 @@ func (i *InfoCmd) Run() error {
 		return fmt.Errorf("failed to fetch resource: %w", err)
 	}
 
-	if i.Output == "json" {
-		return renderJSON(resource)
+	// Create output formatter
+	formatter := output.NewFormatter(i.Output)
+
+	if formatter.IsStructured() {
+		// If clipboard flag is set, copy to clipboard
+		if i.Clipboard {
+			if err := output.CopyToClipboard(resource); err != nil {
+				return fmt.Errorf("failed to copy to clipboard: %w", err)
+			}
+			fmt.Println("✅ Resource information copied to clipboard!")
+			return nil
+		}
+
+		return formatter.Output(resource)
 	}
 
 	// Prepare table data for resource details
@@ -197,10 +235,4 @@ func shortenARN(arn string) string {
 		return "..." + parts[len(parts)-1]
 	}
 	return arn
-}
-
-func renderJSON(data interface{}) error {
-	// TODO: Implementation for JSON rendering
-	// You can use encoding/json package here
-	return nil
 }
