@@ -2,7 +2,9 @@ package cmd
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"os"
 
 	"github.com/Excoriate/aws-taggy/cli/internal/output"
 	"github.com/Excoriate/aws-taggy/cli/internal/tui"
@@ -15,10 +17,19 @@ import (
 
 // CheckCmd represents the compliance check command
 type CheckCmd struct {
-	Config    string `help:"Path to the tag compliance configuration file" required:"true"`
-	Output    string `help:"Output format (table|json|yaml)" default:"table" enum:"table,json,yaml"`
-	Table     bool   `help:"Display detailed information in tables" default:"false"`
-	Clipboard bool   `help:"Copy output to clipboard" default:"false"`
+	Config     string `help:"Path to the tag compliance configuration file" required:"true"`
+	Output     string `help:"Output format (table|json|yaml)" default:"table" enum:"table,json,yaml"`
+	Table      bool   `help:"Display detailed information in tables" default:"false"`
+	Detailed   bool   `help:"Show detailed compliance results for each resource" default:"false"`
+	Clipboard  bool   `help:"Copy output to clipboard" default:"false"`
+	OutputFile string `help:"Write detailed JSON output to specified file" type:"path"`
+}
+
+// DetailedComplianceResult represents a detailed view of compliance results
+type DetailedComplianceResult struct {
+	Summary         output.ComplianceSummary      `json:"summary"`
+	ResourceResults []*output.ComplianceResult    `json:"resource_results"`
+	ValidationRules map[string]*output.RuleResult `json:"validation_rules"`
 }
 
 // Run validates the configuration file and performs compliance checks
@@ -201,12 +212,28 @@ func (c *CheckCmd) Run() error {
 		finalSummary.GlobalViolations[string(vType)] = count
 	}
 
-	// Print the compliance summary
-	output.PrintComplianceSummary(finalSummary)
+	// Create detailed compliance result
+	detailedResult := &DetailedComplianceResult{
+		ResourceResults: complianceResults,
+		ValidationRules: ruleResults,
+		Summary:         finalSummary,
+	}
+
+	// Handle JSON output to file if specified
+	if c.OutputFile != "" {
+		jsonData, err := json.MarshalIndent(detailedResult, "", "  ")
+		if err != nil {
+			return fmt.Errorf("failed to marshal JSON data: %w", err)
+		}
+		if err := os.WriteFile(c.OutputFile, jsonData, 0644); err != nil {
+			return fmt.Errorf("failed to write JSON to file: %w", err)
+		}
+		logger.Info(fmt.Sprintf("✅ Detailed compliance results written to %s", c.OutputFile))
+	}
 
 	// Handle clipboard if requested
 	if c.Clipboard {
-		if err := output.WriteToClipboard(complianceResults); err != nil {
+		if err := output.WriteToClipboard(detailedResult); err != nil {
 			return fmt.Errorf("failed to copy to clipboard: %w", err)
 		}
 		fmt.Println("✅ Compliance check result copied to clipboard!")
@@ -217,12 +244,38 @@ func (c *CheckCmd) Run() error {
 	formatter := output.NewFormatter(c.Output)
 
 	if formatter.IsStructured() {
-		return formatter.Output(complianceResults)
+		return formatter.Output(detailedResult)
 	}
 
 	// If table view is requested
 	if c.Table {
 		return renderDetailedTable(complianceResults, finalSummary)
+	}
+
+	// Print the compliance summary
+	output.PrintComplianceSummary(finalSummary)
+
+	// If detailed output is requested, print resource-specific results
+	if c.Detailed {
+		fmt.Printf("\n🔍 Detailed Resource Results:\n\n")
+		for _, result := range complianceResults {
+			status := "✅"
+			if !result.IsCompliant {
+				status = "❌"
+			}
+			fmt.Printf("%s Resource: %s (%s)\n", status, result.ResourceID, result.ResourceType)
+			fmt.Printf("   Tags:\n")
+			for k, v := range result.ResourceTags {
+				fmt.Printf("      %s: %s\n", k, v)
+			}
+			if !result.IsCompliant {
+				fmt.Printf("   Violations:\n")
+				for _, v := range result.Violations {
+					fmt.Printf("      • %s: %s\n", v.Type, v.Message)
+				}
+			}
+			fmt.Printf("\n")
+		}
 	}
 
 	return nil
