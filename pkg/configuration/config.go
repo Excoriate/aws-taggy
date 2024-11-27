@@ -120,6 +120,27 @@ type CaseSensitivityConfig struct {
 type CaseTransformationConfig struct {
 }
 
+// KeyValidation defines validation rules specific to tag keys
+type KeyValidation struct {
+	// AllowedPrefixes is a list of valid prefixes for tag keys
+	AllowedPrefixes []string `yaml:"allowed_prefixes"`
+
+	// AllowedSuffixes is a list of valid suffixes for tag keys
+	AllowedSuffixes []string `yaml:"allowed_suffixes"`
+
+	// MaxLength specifies the maximum length allowed for tag keys
+	MaxLength int `yaml:"max_length"`
+}
+
+// ValueValidation defines validation rules specific to tag values
+type ValueValidation struct {
+	// AllowedCharacters specifies the regex pattern of allowed characters
+	AllowedCharacters string `yaml:"allowed_characters"`
+
+	// DisallowedValues is a list of values that are not allowed
+	DisallowedValues []string `yaml:"disallowed_values"`
+}
+
 // TagValidation contains all tag validation rules
 type TagValidation struct {
 	AllowedValues map[string][]string `yaml:"allowed_values"`
@@ -133,6 +154,21 @@ type TagValidation struct {
 
 	// New case transformation rules
 	CaseTransformations map[string]CaseTransformationConfig `yaml:"case_transformations,omitempty"`
+
+	// ProhibitedTags lists tag keys that are not allowed
+	ProhibitedTags []string `yaml:"prohibited_tags"`
+
+	// KeyFormatRules defines format rules for tag keys
+	KeyFormatRules []KeyFormatRule `yaml:"key_format_rules"`
+
+	// LengthRules defines length constraints for tag values
+	LengthRules map[string]LengthRule `yaml:"length_rules"`
+
+	// KeyValidation contains validation rules specific to tag keys
+	KeyValidation KeyValidation `yaml:"key_validation"`
+
+	// ValueValidation contains validation rules specific to tag values
+	ValueValidation ValueValidation `yaml:"value_validation"`
 
 	compiledRules map[string]*regexp.Regexp // Internal use for compiled patterns
 }
@@ -261,6 +297,9 @@ type TagCriteria struct {
 
 	// ComplianceLevel specifies the required compliance level for the resource
 	ComplianceLevel string `yaml:"compliance_level"`
+
+	// MaxTags specifies the maximum number of tags allowed on a resource
+	MaxTags int `yaml:"max_tags"`
 }
 
 // Update the ComplianceLevel type or validation if needed
@@ -341,4 +380,25 @@ func IsValidRegion(region string) bool {
 		}
 	}
 	return false
+}
+
+// KeyFormatRule defines format requirements for tag keys
+type KeyFormatRule struct {
+	// Pattern is a regex pattern that tag keys must match
+	Pattern string `yaml:"pattern"`
+
+	// Message provides a description of the format requirement
+	Message string `yaml:"message"`
+}
+
+// LengthRule defines length constraints for tag values
+type LengthRule struct {
+	// MinLength specifies the minimum length allowed
+	MinLength *int `yaml:"min_length,omitempty"`
+
+	// MaxLength specifies the maximum length allowed
+	MaxLength *int `yaml:"max_length,omitempty"`
+
+	// Message provides a description of the length requirement
+	Message string `yaml:"message,omitempty"`
 }

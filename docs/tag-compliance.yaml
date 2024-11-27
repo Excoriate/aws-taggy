@@ -33,6 +33,7 @@ global:
     # Minimum number of tags required for a resource to be considered compliant
     # Ensures a baseline level of resource metadata
     minimum_required_tags: 3
+    max_tags: 50  # Maximum number of tags allowed per resource
 
     # Tags that must be present on every resource to meet compliance
     # These represent core metadata requirements across all resource types
@@ -151,7 +152,57 @@ compliance_levels:
 # Tag Validation Rules
 # Implements strict validation mechanisms for tag values
 tag_validation:
-  # Allowed values for specific tags to ensure consistency
+  # Prohibited tag keys
+  prohibited_tags:
+    - "aws:"
+    - "internal:"
+    - "temp:"
+    - "test:"
+
+  # Tag key format rules
+  key_format_rules:
+    - pattern: "^[a-z][a-z0-9_-]*$"
+      message: "Tag keys must start with lowercase letter and contain only letters, numbers, underscores, and hyphens"
+    - pattern: "^.{1,128}$"
+      message: "Tag keys must not exceed 128 characters"
+
+  # Tag key validation
+  key_validation:
+    allowed_prefixes:
+      - "project-"
+      - "env-"
+      - "cost-"
+    allowed_suffixes:
+      - "-prod"
+      - "-dev"
+      - "-test"
+    max_length: 128
+
+  # Tag value validation
+  value_validation:
+    allowed_characters: "a-zA-Z0-9._-"
+    disallowed_values:
+      - "undefined"
+      - "null"
+      - "none"
+      - "n/a"
+
+  # Tag value length constraints
+  length_rules:
+    environment:
+      min_length: 2
+      max_length: 15
+      message: "Environment tag must be between 2 and 15 characters"
+    owner:
+      min_length: 3
+      max_length: 50
+      message: "Owner tag must be between 3 and 50 characters"
+    project:
+      min_length: 4
+      max_length: 30
+      message: "Project tag must be between 4 and 30 characters"
+
+  # Allowed values for specific tags
   allowed_values:
     Environment:
       - production
@@ -171,9 +222,9 @@ tag_validation:
   # Case sensitivity configuration
   case_sensitivity:
     Environment:
-      mode: strict   # Enforce exact case matching
+      mode: strict
     DataClassification:
-      mode: relaxed  # Allow case-insensitive matching
+      mode: relaxed
 
   # Case transformation rules
   case_rules:
@@ -194,11 +245,11 @@ tag_validation:
       case: lowercase
       message: "Owner tag must be lowercase"
 
-  # Regex pattern rules for specific tags to enforce formatting
+  # Pattern rules for specific tags
   pattern_rules:
-    CostCenter: ^[A-Z]{2}-[0-9]{4}$     # Format: Two uppercase letters, hyphen, four digits
-    ProjectCode: ^PRJ-[0-9]{5}$          # Format: PRJ- prefix, five digits
-    Owner: ^[a-z0-9._%+-]+@company\.com$ # Validates corporate email format
+    CostCenter: ^[A-Z]{2}-[0-9]{4}$
+    ProjectCode: ^PRJ-[0-9]{5}$
+    Owner: ^[a-z0-9._%+-]+@company\.com$
 
 # Notification Configuration
 # Manages reporting and alerting for non-compliant resources

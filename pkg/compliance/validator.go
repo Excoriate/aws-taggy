@@ -33,9 +33,24 @@ func (v *TagValidator) ValidateTags(tags map[string]string) *ComplianceResult {
 		ResourceTags: tags,
 	}
 
+	// Check tag count limits
+	if v.config.Global.TagCriteria.MaxTags > 0 {
+		v.checkTagCount(tags, result)
+	}
+
 	// Check minimum required tags
 	if v.config.Global.TagCriteria.MinimumRequiredTags > 0 {
 		v.checkRequiredTags(tags, result)
+	}
+
+	// Check prohibited tags
+	if len(v.config.TagValidation.ProhibitedTags) > 0 {
+		v.checkProhibitedTags(tags, result)
+	}
+
+	// Validate tag key format
+	if v.config.TagValidation.KeyFormatRules != nil {
+		v.validateKeyFormat(tags, result)
 	}
 
 	// Validate case rules
@@ -53,7 +68,22 @@ func (v *TagValidator) ValidateTags(tags map[string]string) *ComplianceResult {
 		v.validatePatternRules(tags, result)
 	}
 
+	// Validate value length
+	if v.config.TagValidation.LengthRules != nil {
+		v.validateValueLength(tags, result)
+	}
+
 	return result
+}
+
+func (v *TagValidator) checkTagCount(tags map[string]string, result *ComplianceResult) {
+	if len(tags) > v.config.Global.TagCriteria.MaxTags {
+		result.IsCompliant = false
+		result.Violations = append(result.Violations, Violation{
+			Type:    ViolationTypeExcessTags,
+			Message: fmt.Sprintf("Number of tags (%d) exceeds maximum allowed (%d)", len(tags), v.config.Global.TagCriteria.MaxTags),
+		})
+	}
 }
 
 func (v *TagValidator) checkRequiredTags(tags map[string]string, result *ComplianceResult) {
@@ -73,11 +103,38 @@ func (v *TagValidator) checkRequiredTags(tags map[string]string, result *Complia
 	}
 }
 
+func (v *TagValidator) checkProhibitedTags(tags map[string]string, result *ComplianceResult) {
+	for tagKey := range tags {
+		if contains(v.config.TagValidation.ProhibitedTags, tagKey) {
+			result.IsCompliant = false
+			result.Violations = append(result.Violations, Violation{
+				Type:    ViolationTypeProhibitedTag,
+				Message: fmt.Sprintf("Tag '%s' is prohibited", tagKey),
+			})
+		}
+	}
+}
+
+func (v *TagValidator) validateKeyFormat(tags map[string]string, result *ComplianceResult) {
+	for tagKey := range tags {
+		for _, rule := range v.config.TagValidation.KeyFormatRules {
+			matched, err := regexp.MatchString(rule.Pattern, tagKey)
+			if err != nil || !matched {
+				result.IsCompliant = false
+				result.Violations = append(result.Violations, Violation{
+					Type:    ViolationTypeInvalidKeyFormat,
+					Message: fmt.Sprintf("Tag key '%s' does not match required format: %s", tagKey, rule.Message),
+				})
+			}
+		}
+	}
+}
+
 func (v *TagValidator) validateCaseRules(tags map[string]string, result *ComplianceResult) {
 	for tagKey, caseRule := range v.config.TagValidation.CaseRules {
 		tagValue, exists := tags[tagKey]
 		if !exists {
-			continue // Skip if tag doesn't exist
+			continue
 		}
 
 		var isValid bool
@@ -102,11 +159,32 @@ func (v *TagValidator) validateCaseRules(tags map[string]string, result *Complia
 	}
 }
 
+func (v *TagValidator) validateValueLength(tags map[string]string, result *ComplianceResult) {
+	for tagKey, value := range tags {
+		if rule, exists := v.config.TagValidation.LengthRules[tagKey]; exists {
+			if rule.MinLength != nil && len(value) < *rule.MinLength {
+				result.IsCompliant = false
+				result.Violations = append(result.Violations, Violation{
+					Type:    ViolationTypeValueLength,
+					Message: fmt.Sprintf("Tag '%s' value length (%d) is less than minimum required (%d)", tagKey, len(value), *rule.MinLength),
+				})
+			}
+			if rule.MaxLength != nil && len(value) > *rule.MaxLength {
+				result.IsCompliant = false
+				result.Violations = append(result.Violations, Violation{
+					Type:    ViolationTypeValueLength,
+					Message: fmt.Sprintf("Tag '%s' value length (%d) exceeds maximum allowed (%d)", tagKey, len(value), *rule.MaxLength),
+				})
+			}
+		}
+	}
+}
+
 func (v *TagValidator) validateAllowedValues(tags map[string]string, result *ComplianceResult) {
 	for tagKey, allowedValues := range v.config.TagValidation.AllowedValues {
 		tagValue, exists := tags[tagKey]
 		if !exists {
-			continue // Skip if tag doesn't exist
+			continue
 		}
 
 		if !contains(allowedValues, tagValue) {
@@ -123,7 +201,7 @@ func (v *TagValidator) validatePatternRules(tags map[string]string, result *Comp
 	for tagKey, pattern := range v.config.TagValidation.PatternRules {
 		tagValue, exists := tags[tagKey]
 		if !exists {
-			continue // Skip if tag doesn't exist
+			continue
 		}
 
 		matched, err := regexp.MatchString(pattern, tagValue)

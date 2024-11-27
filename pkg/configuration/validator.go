@@ -717,3 +717,111 @@ func (v *ConfigValidator) validateCaseRules() error {
 	}
 	return nil
 }
+
+// ValidateTagKey validates a tag key against all key-related rules
+func (v *ConfigValidator) ValidateTagKey(key string) error {
+	// Check key format rules
+	for _, rule := range v.cfg.TagValidation.KeyFormatRules {
+		matched, err := regexp.MatchString(rule.Pattern, key)
+		if err != nil {
+			return fmt.Errorf("invalid key format pattern: %w", err)
+		}
+		if !matched {
+			return fmt.Errorf(rule.Message)
+		}
+	}
+
+	// Check prohibited tags
+	for _, prohibited := range v.cfg.TagValidation.ProhibitedTags {
+		if strings.HasPrefix(key, prohibited) {
+			return fmt.Errorf("tag key '%s' uses prohibited prefix '%s'", key, prohibited)
+		}
+	}
+
+	// Check key validation rules
+	if v.cfg.TagValidation.KeyValidation.MaxLength > 0 && len(key) > v.cfg.TagValidation.KeyValidation.MaxLength {
+		return fmt.Errorf("tag key exceeds maximum length of %d characters", v.cfg.TagValidation.KeyValidation.MaxLength)
+	}
+
+	// Check allowed prefixes
+	if len(v.cfg.TagValidation.KeyValidation.AllowedPrefixes) > 0 {
+		validPrefix := false
+		for _, prefix := range v.cfg.TagValidation.KeyValidation.AllowedPrefixes {
+			if strings.HasPrefix(key, prefix) {
+				validPrefix = true
+				break
+			}
+		}
+		if !validPrefix {
+			return fmt.Errorf("tag key must start with one of the allowed prefixes: %v", v.cfg.TagValidation.KeyValidation.AllowedPrefixes)
+		}
+	}
+
+	return nil
+}
+
+// ValidateTagValue validates a tag value against all value-related rules
+func (v *ConfigValidator) ValidateTagValue(key, value string) error {
+	// Check length rules
+	if rule, exists := v.cfg.TagValidation.LengthRules[key]; exists {
+		if rule.MinLength != nil && len(value) < *rule.MinLength {
+			return fmt.Errorf(rule.Message)
+		}
+		if rule.MaxLength != nil && len(value) > *rule.MaxLength {
+			return fmt.Errorf(rule.Message)
+		}
+	}
+
+	// Check allowed values
+	if allowedValues, exists := v.cfg.TagValidation.AllowedValues[key]; exists {
+		valid := false
+		for _, allowed := range allowedValues {
+			if value == allowed {
+				valid = true
+				break
+			}
+		}
+		if !valid {
+			return fmt.Errorf("value '%s' not in allowed values for tag '%s'", value, key)
+		}
+	}
+
+	// Check pattern rules
+	if pattern, exists := v.cfg.TagValidation.PatternRules[key]; exists {
+		matched, err := regexp.MatchString(pattern, value)
+		if err != nil {
+			return fmt.Errorf("invalid pattern for tag %s: %w", key, err)
+		}
+		if !matched {
+			return fmt.Errorf("value '%s' does not match required pattern for tag '%s'", value, key)
+		}
+	}
+
+	// Check disallowed values
+	for _, disallowed := range v.cfg.TagValidation.ValueValidation.DisallowedValues {
+		if value == disallowed {
+			return fmt.Errorf("value '%s' is not allowed for tag '%s'", value, key)
+		}
+	}
+
+	// Check allowed characters
+	if pattern := v.cfg.TagValidation.ValueValidation.AllowedCharacters; pattern != "" {
+		matched, err := regexp.MatchString(fmt.Sprintf("^[%s]*$", pattern), value)
+		if err != nil {
+			return fmt.Errorf("invalid allowed characters pattern: %w", err)
+		}
+		if !matched {
+			return fmt.Errorf("value contains disallowed characters")
+		}
+	}
+
+	return nil
+}
+
+// ValidateTagCount validates the total number of tags
+func (v *ConfigValidator) ValidateTagCount(tags map[string]string) error {
+	if v.cfg.Global.TagCriteria.MaxTags > 0 && len(tags) > v.cfg.Global.TagCriteria.MaxTags {
+		return fmt.Errorf("number of tags (%d) exceeds maximum allowed (%d)", len(tags), v.cfg.Global.TagCriteria.MaxTags)
+	}
+	return nil
+}

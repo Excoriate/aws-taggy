@@ -20,6 +20,7 @@
                     "type": "object",
                     "properties": {
                         "minimum_required_tags": {"type": "integer", "minimum": 0},
+                        "max_tags": {"type": "integer", "minimum": 1},
                         "required_tags": {
                             "type": "array",
                             "items": {"type": "string"},
@@ -158,6 +159,63 @@
                 "pattern_rules": {
                     "type": "object",
                     "additionalProperties": {"type": "string"}
+                },
+                "prohibited_tags": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "uniqueItems": true,
+                    "description": "List of tag keys that are not allowed"
+                },
+                "key_format_rules": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "pattern": {"type": "string"},
+                            "message": {"type": "string"}
+                        },
+                        "required": ["pattern"]
+                    },
+                    "description": "Rules for validating tag key formats"
+                },
+                "length_rules": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "object",
+                        "properties": {
+                            "min_length": {"type": "integer", "minimum": 0},
+                            "max_length": {"type": "integer", "minimum": 1},
+                            "message": {"type": "string"}
+                        }
+                    },
+                    "description": "Rules for tag value length constraints"
+                },
+                "key_validation": {
+                    "type": "object",
+                    "properties": {
+                        "allowed_prefixes": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "uniqueItems": true
+                        },
+                        "allowed_suffixes": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "uniqueItems": true
+                        },
+                        "max_length": {"type": "integer", "minimum": 1}
+                    }
+                },
+                "value_validation": {
+                    "type": "object",
+                    "properties": {
+                        "allowed_characters": {"type": "string"},
+                        "disallowed_values": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "uniqueItems": true
+                        }
+                    }
                 }
             }
         },
