@@ -68,59 +68,49 @@ go build -o aws-taggy cli/main.go
 
 ### Running Examples
 
-Each example in `tests/examples/` demonstrates a specific tagging compliance scenario.
+AWS Taggy includes interactive examples to demonstrate tag compliance scenarios.
 
-#### S3 Bucket Tag Compliance Example
+#### Prerequisites
+
+- Terraform
+- AWS CLI
+- Go 1.23+
+- AWS Credentials
+
+#### S3 Tag Compliance Example
+
+##### Available Modes
 
 ```bash
-# Navigate to the S3 example
-cd tests/examples/example-s3-specific-tags
+# Create Terraform resources
+just run-example 1-s3-specific-tags create
 
-# Run full example workflow (apply, check compliance, destroy)
-./run.sh
+# Plan Terraform changes
+just run-example 1-s3-specific-tags plan
 
-# Run specific modes
-./run.sh terraform     # Only apply Terraform
-./run.sh compliance    # Only run compliance check
-./run.sh destroy       # Destroy resources
+# Run full scenario (create + compliance check)
+just run-example 1-s3-specific-tags run
+
+# Destroy resources
+just run-example 1-s3-specific-tags destroy
 ```
 
-#### Example Script Modes
+##### Example Configuration
 
-The `run.sh` script supports multiple modes:
+- Location: `tests/examples/1-s3-specific-tags/`
+- Terraform Config: `main.tf`
+- Compliance Rules: `tag-compliance.yaml`
 
-- `all` (default): Full workflow
-
-  - Apply Terraform
-  - Run compliance check
-  - Destroy resources
-
-- `terraform`: Only apply Terraform resources
-- `compliance`: Only run tag compliance check
-- `destroy`: Remove all created resources
-
-### Compliance Check Modes
-
-The underlying `run_me.sh` script supports multiple compliance check modes:
-
-- `check`: Default compliance validation
-- `validate`: Validate configuration
-- `report`: Generate detailed report
-
-### Example Compliance Check
+### AWS Credentials Setup
 
 ```bash
-# Run compliance check with different outputs
-aws-taggy compliance check \
-  --config ./tag-compliance.yaml \
-  --output=table \
-  --detailed
+# Option 1: AWS CLI Configuration
+aws configure
 
-# Generate JSON output
-aws-taggy compliance check \
-  --config ./tag-compliance.yaml \
-  --output=json \
-  --output-file=compliance_results.json
+# Option 2: Environment Variables
+export AWS_ACCESS_KEY_ID='your_access_key'
+export AWS_SECRET_ACCESS_KEY='your_secret_key'
+export AWS_REGION='us-east-1'
 ```
 
 ## 📝 Configuration

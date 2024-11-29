@@ -9,19 +9,25 @@ source "${PROJECT_ROOT}/scripts/run_me.sh"
 source "${PROJECT_ROOT}/scripts/terraform_manage.sh"
 
 # Example-specific configuration
-readonly EXAMPLE_NAME="example-s3-specific-tags"
+EXAMPLE_NAME="1-s3-specific-tags"
 
 # Validate AWS credentials
 validate_aws_credentials() {
   # Check for required AWS environment variables
-  local required_vars=("AWS_ACCESS_KEY_ID" "AWS_SECRET_ACCESS_KEY" "AWS_REGION")
+  local required_vars=("AWS_ACCESS_KEY_ID" "AWS_SECRET_ACCESS_KEY")
   local missing_vars=()
 
   for var in "${required_vars[@]}"; do
-    if [[ -z "${!var}" ]]; then
+    if [[ -z "${!var+x}" ]]; then
       missing_vars+=("$var")
     fi
   done
+
+  # Default AWS_REGION to us-east-1 if not set
+  if [[ -z "${AWS_REGION+x}" ]]; then
+    export AWS_REGION="us-east-1"
+    log INFO "AWS_REGION not set. Defaulting to us-east-1"
+  fi
 
   # If any required variables are missing, exit with an error
   if [[ ${#missing_vars[@]} -gt 0 ]]; then
@@ -44,42 +50,53 @@ validate_aws_credentials() {
 
 # Wrapper function to run the example
 run_example() {
-  local mode="${1:-all}"
+  local mode="${1:-create}"
 
   # Validate AWS credentials before any operation
   validate_aws_credentials
 
   # Validate input mode
   case "${mode}" in
-    terraform)
-      # Only run Terraform operations
+    create)
+      # Run Terraform create/apply operation
       manage_terraform "${EXAMPLE_NAME}" "apply"
       ;;
-    compliance)
-      # Only run compliance check
-      run_aws_taggy "${EXAMPLE_NAME}"
+    plan)
+      # Only run Terraform plan
+      manage_terraform "${EXAMPLE_NAME}" "plan"
       ;;
     destroy)
       # Destroy resources
       manage_terraform "${EXAMPLE_NAME}" "destroy"
       ;;
-    all)
-      # Full workflow: apply, check compliance, then destroy
+    run)
+      # Full scenario: create resources, run compliance check
       manage_terraform "${EXAMPLE_NAME}" "apply"
-      run_aws_taggy "${EXAMPLE_NAME}"
-      manage_terraform "${EXAMPLE_NAME}" "destroy"
+      run_compliance_check "${EXAMPLE_NAME}"
       ;;
     *)
       # Invalid mode
-      log ERROR "Invalid mode: ${mode}. Supported modes: terraform, compliance, destroy, all"
+      log ERROR "Invalid mode: ${mode}. Supported modes: create, plan, destroy, run"
       exit 1
       ;;
   esac
 }
 
+# Run compliance check using CLI from source code
+run_compliance_check() {
+  local example_name="${1}"
+  local config_file="${PROJECT_ROOT}/tests/examples/${example_name}/tag-compliance.yaml"
+
+  log INFO "Running compliance check from source code"
+  go run "${PROJECT_ROOT}/cli/main.go" compliance check \
+    --config "${config_file}" \
+    --output=table \
+    --detailed
+}
+
 # Main script execution
 main() {
-  local mode="${1:-all}"
+  local mode="${1:-create}"
 
   # Log the start of the example
   log INFO "Running S3 tag compliance example with mode: ${mode}"

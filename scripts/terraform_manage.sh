@@ -5,14 +5,26 @@
 set -euo pipefail
 
 # Logging and output formatting
-readonly SCRIPT_NAME=$(basename "$0")
-readonly LOG_FILE="/tmp/${SCRIPT_NAME}.log"
+# Use a function to get script name that works when sourced
+get_script_name() {
+  local script_path="${BASH_SOURCE[0]}"
+  if [[ -z "$script_path" ]]; then
+    script_path="$0"
+  fi
+  basename "$script_path"
+}
 
-# Color codes for output
-readonly COLOR_GREEN='\033[0;32m'
-readonly COLOR_RED='\033[0;31m'
-readonly COLOR_YELLOW='\033[1;33m'
-readonly COLOR_RESET='\033[0m'
+# Prevent variable reassignment
+if [ -z "${SCRIPT_NAME+x}" ]; then
+  SCRIPT_NAME=$(get_script_name)
+  LOG_FILE="/tmp/${SCRIPT_NAME}.log"
+
+  # Color codes for output
+  COLOR_GREEN='\033[0;32m'
+  COLOR_RED='\033[0;31m'
+  COLOR_YELLOW='\033[1;33m'
+  COLOR_RESET='\033[0m'
+fi
 
 # Logging function
 log() {
@@ -54,17 +66,24 @@ EXAMPLE_DIR=""
 # Load example-specific configuration
 load_example_config() {
   local example_name="${1}"
+  local example_dir_candidates=(
+    "tests/examples/${example_name}"
+    "tests/examples/example-${example_name}"
+  )
 
-  # Dynamically set paths based on example name
-  EXAMPLE_DIR="tests/examples/${example_name}"
+  # Try different directory paths
+  for dir in "${example_dir_candidates[@]}"; do
+    if [[ -f "${dir}/main.tf" ]]; then
+      EXAMPLE_DIR="${dir}"
+      log INFO "Loaded Terraform configuration for example: ${example_name}"
+      return
+    fi
+  done
 
-  # Validate Terraform configuration exists
-  if [[ ! -f "${EXAMPLE_DIR}/main.tf" ]]; then
-    log ERROR "Terraform configuration not found in: ${EXAMPLE_DIR}"
-    exit 1
-  fi
-
-  log INFO "Loaded Terraform configuration for example: ${example_name}"
+  # If no configuration found, exit with an error
+  log ERROR "Terraform configuration not found for example: ${example_name}"
+  log ERROR "Tried directories: ${example_dir_candidates[*]}"
+  exit 1
 }
 
 # Initialize Terraform

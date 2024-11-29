@@ -59,3 +59,7 @@ run-hooks:
     @pre-commit autoupdate
     @pre-commit run --all-files
 
+# Run an example in the tests/examples directory 📚🔍
+run-example dir mode:
+    @echo "🚀 Running example in: {{dir}} 🔍"
+    @./tests/examples/{{dir}}/run.sh {{mode}}
