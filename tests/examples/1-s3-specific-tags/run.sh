@@ -74,9 +74,13 @@ run_example() {
       manage_terraform "${EXAMPLE_NAME}" "apply"
       run_compliance_check "${EXAMPLE_NAME}"
       ;;
+    run-cli)
+      # Run compliance check assuming infrastructure is already created
+      run_compliance_check "${EXAMPLE_NAME}"
+      ;;
     *)
       # Invalid mode
-      log ERROR "Invalid mode: ${mode}. Supported modes: create, plan, destroy, run"
+      log ERROR "Invalid mode: ${mode}. Supported modes: create, plan, destroy, run, run-cli"
       exit 1
       ;;
   esac
@@ -86,10 +90,12 @@ run_example() {
 run_compliance_check() {
   local example_name="${1}"
   local config_file="${PROJECT_ROOT}/tests/examples/${example_name}/tag-compliance.yaml"
+  local resource_name="aws-taggy"
 
   log INFO "Running compliance check from source code"
   go run "${PROJECT_ROOT}/cli/main.go" compliance check \
     --config "${config_file}" \
+    --resource "${resource_name}" \
     --output=table \
     --detailed
 }

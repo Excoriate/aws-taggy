@@ -53,8 +53,15 @@ tag_validation:
 
   # Tag key format rules
   key_format_rules:
-    - pattern: "^[a-z][a-z0-9_-]*$"
-      message: "Tag keys must start with lowercase and contain only lowercase letters, numbers, underscores, and hyphens"
+    - pattern: "^[A-Z][a-zA-Z0-9]*$"
+      message: "Tag keys must start with an uppercase letter and contain letters"
+      allowed_keys:
+        - Name
+        - Environment
+        - Owner
+        - Project
+        - DataClassification
+        - CostCenter
 
   # Value validation
   value_validation:

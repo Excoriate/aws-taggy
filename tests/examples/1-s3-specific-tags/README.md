@@ -114,6 +114,53 @@ aws-taggy compliance check \
   --output-file=compliance_results.json
 ```
 
+## Compliance Check with Specific Resource
+
+### Resource-Specific Compliance Validation
+
+You can run a compliance check for the S3 bucket using two methods:
+
+#### Method 1: Using Justfile (Recommended)
+
+```bash
+# Run full example workflow (create resources and check compliance)
+just run-example 1-s3-specific-tags run
+
+# Run compliance check assuming infrastructure is already created
+just run-example 1-s3-specific-tags run-cli
+```
+
+#### Method 2: Direct CLI Execution
+
+```bash
+# Run compliance check from source code
+go run cli/main.go compliance check \
+  --config tests/examples/1-s3-specific-tags/tag-compliance.yaml \
+  --resource aws-taggy \
+  --output=table \
+  --detailed
+```
+
+### Compliance Check Options
+
+- `just run-example 1-s3-specific-tags run`: Creates resources and runs compliance check
+- `just run-example 1-s3-specific-tags run-cli`: Runs compliance check on existing resources
+- Direct CLI command supports various output formats and detailed reporting
+
+### Benefits of Resource-Specific Checks
+
+- Quickly validate a single resource's tag compliance
+- Useful for spot-checking specific resources
+- Supports both resource names and full ARNs
+- Provides detailed insights into tag compliance for the specified resource
+
+### Troubleshooting
+
+- Ensure the resource name exactly matches the existing resource
+- Verify AWS credentials are correctly configured
+- Check that the resource exists in the specified AWS region
+- Use `--detailed` flag for comprehensive compliance information
+
 ## Troubleshooting
 
 - Ensure AWS credentials are correctly configured

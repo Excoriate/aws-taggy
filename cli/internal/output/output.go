@@ -138,7 +138,7 @@ func PrintComplianceSummary(summary ComplianceSummary) {
 	if len(summary.GlobalViolations) > 0 {
 		fmt.Printf("Violation Types:\n")
 		for vType, count := range summary.GlobalViolations {
-			fmt.Printf("  • %s: %d occurrences\n", vType, count)
+			fmt.Printf("  🚨 %s: %d occurrences\n", vType, count)
 		}
 	}
 }

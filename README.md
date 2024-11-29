@@ -91,8 +91,22 @@ just run-example 1-s3-specific-tags plan
 # Run full scenario (create + compliance check)
 just run-example 1-s3-specific-tags run
 
+# Run compliance check on existing resources
+just run-example 1-s3-specific-tags run-cli
+
 # Destroy resources
 just run-example 1-s3-specific-tags destroy
+```
+
+##### Direct CLI Execution
+
+```bash
+# Run compliance check from source code
+go run cli/main.go compliance check \
+  --config tests/examples/1-s3-specific-tags/tag-compliance.yaml \
+  --resource aws-taggy \
+  --output=table \
+  --detailed
 ```
 
 ##### Example Configuration
@@ -100,6 +114,7 @@ just run-example 1-s3-specific-tags destroy
 - Location: `tests/examples/1-s3-specific-tags/`
 - Terraform Config: `main.tf`
 - Compliance Rules: `tag-compliance.yaml`
+- Resource Name: `aws-taggy`
 
 ### AWS Credentials Setup
 

@@ -23,6 +23,7 @@ type CheckCmd struct {
 	Detailed   bool   `help:"Show detailed compliance results for each resource" default:"false"`
 	Clipboard  bool   `help:"Copy output to clipboard" default:"false"`
 	OutputFile string `help:"Write detailed JSON output to specified file" type:"path"`
+	Resource   string `help:"Filter compliance check for a specific resource (name or ARN)" optional:"true"`
 }
 
 // DetailedComplianceResult represents a detailed view of compliance results
@@ -104,6 +105,52 @@ func (c *CheckCmd) Run() error {
 
 	// Get scan results
 	scanResults := scannerMgr.GetResults()
+
+	// Filter resources if Resource flag is provided
+	if c.Resource != "" {
+		logger.Info(fmt.Sprintf("🔍 Filtering resources matching: %s", c.Resource))
+		filteredResults := make(map[string]*inspector.ScanResult)
+
+		for resourceType, result := range scanResults {
+			filteredResources := make([]inspector.ResourceMetadata, 0)
+			for _, resource := range result.Resources {
+				// Check if resource matches by ID or ARN
+				if resource.ID == c.Resource ||
+					resource.Details.ARN == c.Resource ||
+					resource.Details.Name == c.Resource {
+					filteredResources = append(filteredResources, resource)
+				}
+			}
+
+			if len(filteredResources) > 0 {
+				filteredResult := &inspector.ScanResult{
+					Resources:      filteredResources,
+					StartTime:      result.StartTime,
+					EndTime:        result.EndTime,
+					Duration:       result.Duration,
+					Region:         result.Region,
+					TotalResources: len(filteredResources),
+					Errors:         result.Errors,
+				}
+				filteredResults[resourceType] = filteredResult
+			}
+		}
+
+		// If no resources match the filter, return an error
+		if len(filteredResults) == 0 {
+			return fmt.Errorf("no resources found matching the resource filter: %s", c.Resource)
+		}
+
+		// Safely get the number of filtered resources
+		var totalFilteredResources int
+		for _, result := range filteredResults {
+			totalFilteredResources += len(result.Resources)
+		}
+		logger.Info(fmt.Sprintf("✅ Found %d resources matching the filter", totalFilteredResources))
+
+		// Update scanResults with filtered results
+		scanResults = filteredResults
+	}
 
 	// Create compliance validator
 	complianceValidator := compliance.NewTagValidator(cfg)

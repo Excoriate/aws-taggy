@@ -3,11 +3,11 @@ provider "aws" {
 }
 
 resource "aws_s3_bucket" "compliance_test_bucket" {
-  bucket        = "aws-taggy-compliance-test-bucket"
+  bucket        = "aws-taggy"
   force_destroy = true
 
   tags = {
-    Name                = "aws-taggy-test-bucket"
+    Name                = "aws-taggy"
     Environment         = "development"
     Owner               = "data-engineering-team@company.com"
     Project             = "aws-taggy-demo"
