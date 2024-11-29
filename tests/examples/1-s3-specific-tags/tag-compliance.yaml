@@ -65,7 +65,6 @@ tag_validation:
 
   # Value validation
   value_validation:
-    allowed_characters: "a-zA-Z0-9._-"
     disallowed_values:
       - "undefined"
       - "null"
@@ -114,7 +113,7 @@ tag_validation:
   # Pattern rules for specific tags
   pattern_rules:
     CostCenter: "^[A-Z]{2}-[0-9]{4}$"
-    Owner: "^[a-z0-9._%+-]+@company\\.com$"
+    Owner: "^[a-z0-9._%+-]+@[a-z0-9.-]+\\.[a-z]{2,}$"
 
 # Notification configuration
 notifications:
