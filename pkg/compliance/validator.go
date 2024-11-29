@@ -48,31 +48,23 @@ func (v *TagValidator) ValidateTags(tags map[string]string) *ComplianceResult {
 		v.checkProhibitedTags(tags, result)
 	}
 
-	// Validate case rules first
+	// New comprehensive validations
+	v.validateKeyPrefixSuffix(tags, result)
+	v.validateValueCharacters(tags, result)
+	v.validateCaseSensitivity(tags, result)
+
+	// Enhanced validation methods
+	v.validateKeyFormat(tags, result)
+	v.validateValueLength(tags, result)
+
+	// Case rules validation
 	hasCaseViolation := v.validateCaseRules(tags, result)
 	if hasCaseViolation {
 		return result
 	}
 
-	// Validate tag key format
-	if v.config.TagValidation.KeyFormatRules != nil {
-		v.validateKeyFormat(tags, result)
-	}
-
-	// Validate allowed values
-	if v.config.TagValidation.AllowedValues != nil {
-		v.validateAllowedValues(tags, result)
-	}
-
-	// Validate pattern rules
-	if v.config.TagValidation.PatternRules != nil {
-		v.validatePatternRules(tags, result)
-	}
-
-	// Validate value length
-	if v.config.TagValidation.LengthRules != nil {
-		v.validateValueLength(tags, result)
-	}
+	v.validateAllowedValues(tags, result)
+	v.validatePatternRules(tags, result)
 
 	return result
 }
@@ -106,25 +98,34 @@ func (v *TagValidator) checkRequiredTags(tags map[string]string, result *Complia
 
 func (v *TagValidator) checkProhibitedTags(tags map[string]string, result *ComplianceResult) {
 	for tagKey := range tags {
-		if contains(v.config.TagValidation.ProhibitedTags, tagKey) {
-			result.IsCompliant = false
-			result.Violations = append(result.Violations, Violation{
-				Type:    ViolationTypeProhibitedTag,
-				Message: fmt.Sprintf("Tag '%s' is prohibited", tagKey),
-			})
+		for _, prohibitedTag := range v.config.TagValidation.ProhibitedTags {
+			if strings.Contains(tagKey, prohibitedTag) {
+				result.IsCompliant = false
+				result.Violations = append(result.Violations, Violation{
+					Type:    ViolationTypeProhibitedTag,
+					Message: fmt.Sprintf("Tag '%s' contains prohibited prefix or substring: '%s'", tagKey, prohibitedTag),
+				})
+			}
 		}
 	}
 }
 
 func (v *TagValidator) validateKeyFormat(tags map[string]string, result *ComplianceResult) {
+	keyFormatRules := v.config.TagValidation.KeyFormatRules
+
+	if len(keyFormatRules) == 0 {
+		return
+	}
+
 	for tagKey := range tags {
-		for _, rule := range v.config.TagValidation.KeyFormatRules {
+		for _, rule := range keyFormatRules {
 			matched, err := regexp.MatchString(rule.Pattern, tagKey)
 			if err != nil || !matched {
 				result.IsCompliant = false
 				result.Violations = append(result.Violations, Violation{
 					Type:    ViolationTypeInvalidKeyFormat,
-					Message: fmt.Sprintf("Tag key '%s' does not match required format: %s", tagKey, rule.Message),
+					Message: rule.Message,
+					TagKey:  tagKey,
 				})
 			}
 		}
@@ -132,7 +133,13 @@ func (v *TagValidator) validateKeyFormat(tags map[string]string, result *Complia
 }
 
 func (v *TagValidator) validateCaseRules(tags map[string]string, result *ComplianceResult) bool {
-	for tagKey, caseRule := range v.config.TagValidation.CaseRules {
+	caseRules := v.config.TagValidation.CaseRules
+
+	if len(caseRules) == 0 {
+		return false
+	}
+
+	for tagKey, caseRule := range caseRules {
 		tagValue, exists := tags[tagKey]
 		if !exists {
 			continue
@@ -140,24 +147,34 @@ func (v *TagValidator) validateCaseRules(tags map[string]string, result *Complia
 
 		var isValid bool
 		switch caseRule.Case {
-		case "lowercase":
+		case configuration.CaseLowercase:
 			isValid = tagValue == strings.ToLower(tagValue)
-		case "uppercase":
+		case configuration.CaseUppercase:
 			isValid = tagValue == strings.ToUpper(tagValue)
-		case "mixed":
-			isValid = caseRule.Pattern == "" || regexp.MustCompile(caseRule.Pattern).MatchString(tagValue)
+		case configuration.CaseMixed:
+			// If pattern is specified, validate against it
+			if caseRule.Pattern != "" {
+				matched, err := regexp.MatchString(caseRule.Pattern, tagValue)
+				if err != nil {
+					isValid = false
+				} else {
+					isValid = matched
+				}
+			} else {
+				// If no pattern, just allow mixed case
+				isValid = true
+			}
 		default:
 			isValid = true
 		}
 
 		if !isValid {
 			result.IsCompliant = false
-			result.Violations = []Violation{
-				{
-					Type:    ViolationTypeCaseViolation,
-					Message: fmt.Sprintf("Tag %s violates case rule: %s", tagKey, caseRule.Message),
-				},
-			}
+			result.Violations = append(result.Violations, Violation{
+				Type:    ViolationTypeCaseViolation,
+				Message: caseRule.Message,
+				TagKey:  tagKey,
+			})
 			return true
 		}
 	}
@@ -165,20 +182,28 @@ func (v *TagValidator) validateCaseRules(tags map[string]string, result *Complia
 }
 
 func (v *TagValidator) validateValueLength(tags map[string]string, result *ComplianceResult) {
-	for tagKey, value := range tags {
-		if rule, exists := v.config.TagValidation.LengthRules[tagKey]; exists {
-			if rule.MinLength != nil && len(value) < *rule.MinLength {
+	lengthRules := v.config.TagValidation.LengthRules
+
+	if len(lengthRules) == 0 {
+		return
+	}
+
+	for tagKey, tagValue := range tags {
+		if rule, exists := lengthRules[tagKey]; exists {
+			if rule.MinLength != nil && len(tagValue) < *rule.MinLength {
 				result.IsCompliant = false
 				result.Violations = append(result.Violations, Violation{
 					Type:    ViolationTypeValueLength,
-					Message: fmt.Sprintf("Tag '%s' value length (%d) is less than minimum required (%d)", tagKey, len(value), *rule.MinLength),
+					Message: rule.Message,
+					TagKey:  tagKey,
 				})
 			}
-			if rule.MaxLength != nil && len(value) > *rule.MaxLength {
+			if rule.MaxLength != nil && len(tagValue) > *rule.MaxLength {
 				result.IsCompliant = false
 				result.Violations = append(result.Violations, Violation{
 					Type:    ViolationTypeValueLength,
-					Message: fmt.Sprintf("Tag '%s' value length (%d) exceeds maximum allowed (%d)", tagKey, len(value), *rule.MaxLength),
+					Message: rule.Message,
+					TagKey:  tagKey,
 				})
 			}
 		}
@@ -210,6 +235,9 @@ func (v *TagValidator) validatePatternRules(tags map[string]string, result *Comp
 		}
 
 		matched, err := regexp.MatchString(pattern, tagValue)
+		fmt.Printf("Pattern validation - Tag: %s, Value: %s, Pattern: %s, Matched: %v, Error: %v\n",
+			tagKey, tagValue, pattern, matched, err)
+
 		if err != nil || !matched {
 			result.IsCompliant = false
 			result.Violations = append(result.Violations, Violation{
@@ -263,4 +291,142 @@ func (v *TagValidator) validateTagCase(tags map[string]string) []Violation {
 	}
 
 	return violations
+}
+
+func (v *TagValidator) validateKeyPrefixSuffix(tags map[string]string, result *ComplianceResult) {
+	keyValidation := v.config.TagValidation.KeyValidation
+
+	// Check if KeyValidation struct is empty
+	if len(keyValidation.AllowedPrefixes) == 0 &&
+		len(keyValidation.AllowedSuffixes) == 0 &&
+		keyValidation.MaxLength == 0 {
+		return
+	}
+
+	for tagKey := range tags {
+		// Prefix validation
+		if len(keyValidation.AllowedPrefixes) > 0 {
+			prefixValid := false
+			for _, prefix := range keyValidation.AllowedPrefixes {
+				if strings.HasPrefix(tagKey, prefix) {
+					prefixValid = true
+					break
+				}
+			}
+			if !prefixValid {
+				result.IsCompliant = false
+				result.Violations = append(result.Violations, Violation{
+					Type:    ViolationTypeInvalidKeyFormat,
+					Message: fmt.Sprintf("Tag key '%s' does not have an allowed prefix", tagKey),
+				})
+			}
+		}
+
+		// Suffix validation
+		if len(keyValidation.AllowedSuffixes) > 0 {
+			suffixValid := false
+			for _, suffix := range keyValidation.AllowedSuffixes {
+				if strings.HasSuffix(tagKey, suffix) {
+					suffixValid = true
+					break
+				}
+			}
+			if !suffixValid {
+				result.IsCompliant = false
+				result.Violations = append(result.Violations, Violation{
+					Type:    ViolationTypeInvalidKeyFormat,
+					Message: fmt.Sprintf("Tag key '%s' does not have an allowed suffix", tagKey),
+				})
+			}
+		}
+
+		// Max length validation
+		if keyValidation.MaxLength > 0 && len(tagKey) > keyValidation.MaxLength {
+			result.IsCompliant = false
+			result.Violations = append(result.Violations, Violation{
+				Type:    ViolationTypeInvalidKeyFormat,
+				Message: fmt.Sprintf("Tag key '%s' exceeds maximum length of %d", tagKey, keyValidation.MaxLength),
+			})
+		}
+	}
+}
+
+func (v *TagValidator) validateValueCharacters(tags map[string]string, result *ComplianceResult) {
+	valueValidation := v.config.TagValidation.ValueValidation
+
+	// Check if ValueValidation struct is empty
+	if valueValidation.AllowedCharacters == "" &&
+		len(valueValidation.DisallowedValues) == 0 {
+		return
+	}
+
+	// If allowed characters are specified, create a regex
+	var allowedCharsRegex *regexp.Regexp
+	if valueValidation.AllowedCharacters != "" {
+		allowedCharsRegex = regexp.MustCompile(fmt.Sprintf("^[%s]+$", valueValidation.AllowedCharacters))
+	}
+
+	for tagKey, tagValue := range tags {
+		// Validate allowed characters if regex is defined
+		if allowedCharsRegex != nil && !allowedCharsRegex.MatchString(tagValue) {
+			result.IsCompliant = false
+			result.Violations = append(result.Violations, Violation{
+				Type:    ViolationTypeInvalidValue,
+				Message: fmt.Sprintf("Tag '%s' contains disallowed characters. Only %s are allowed", tagKey, valueValidation.AllowedCharacters),
+			})
+		}
+
+		// Disallowed values check
+		if len(valueValidation.DisallowedValues) > 0 {
+			for _, disallowedValue := range valueValidation.DisallowedValues {
+				if tagValue == disallowedValue {
+					result.IsCompliant = false
+					result.Violations = append(result.Violations, Violation{
+						Type:    ViolationTypeInvalidValue,
+						Message: fmt.Sprintf("Tag '%s' contains disallowed value: %s", tagKey, disallowedValue),
+					})
+				}
+			}
+		}
+	}
+}
+
+func (v *TagValidator) validateCaseSensitivity(tags map[string]string, result *ComplianceResult) {
+	caseSensitivity := v.config.TagValidation.CaseSensitivity
+
+	// Check if CaseSensitivity map is empty
+	if len(caseSensitivity) == 0 {
+		return
+	}
+
+	for tagKey, tagValue := range tags {
+		if caseSensitivityRule, exists := caseSensitivity[tagKey]; exists {
+			switch caseSensitivityRule.Mode {
+			case "strict":
+				// Exact case matching
+				if tagValue != v.preserveOriginalCase(tagValue) {
+					result.IsCompliant = false
+					result.Violations = append(result.Violations, Violation{
+						Type:    ViolationTypeCaseViolation,
+						Message: fmt.Sprintf("Tag '%s' must maintain exact original case", tagKey),
+					})
+				}
+			case "relaxed":
+				// More lenient case validation
+				if strings.ToLower(tagValue) != strings.ToLower(v.preserveOriginalCase(tagValue)) {
+					result.IsCompliant = false
+					result.Violations = append(result.Violations, Violation{
+						Type:    ViolationTypeCaseViolation,
+						Message: fmt.Sprintf("Tag '%s' has case inconsistency", tagKey),
+					})
+				}
+			}
+		}
+	}
+}
+
+func (v *TagValidator) preserveOriginalCase(s string) string {
+	// Placeholder method to preserve original case
+	// In a real implementation, this would track the original input
+	return s
 }

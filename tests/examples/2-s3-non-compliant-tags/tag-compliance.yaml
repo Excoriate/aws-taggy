@@ -1,0 +1,64 @@
+version: "1.0"
+resource_type: aws_s3_bucket
+compliance_level: high
+
+global:
+  tag_criteria:
+    minimum_required_tags: 5
+    max_tags: 10
+
+tag_validation:
+  prohibited_tags:
+    - "temp:"
+    - "test:"
+
+  key_format_rules:
+    - pattern: "^[a-z][a-z0-9_-]*$"
+      message: "Tag keys must be lowercase and start with a letter"
+
+  allowed_values:
+    environment:
+      - dev
+      - staging
+      - prod
+    data_class:
+      - public
+      - internal
+      - confidential
+      - restricted
+
+  pattern_rules:
+    project: "^[a-z0-9-]+$"
+    owner: "^[a-z0-9._%+-]+@company\\.com$"
+    cost_center: "^CC-\\d{4}$"
+
+  case_rules:
+    environment:
+      case: lowercase
+    project:
+      case: lowercase
+    owner:
+      case: lowercase
+
+  length_rules:
+    project:
+      min_length: 3
+      max_length: 30
+    environment:
+      min_length: 3
+      max_length: 15
+    owner:
+      min_length: 10
+      max_length: 50
+
+required_tags:
+  - project
+  - environment
+  - owner
+  - data_class
+  - cost_center
+
+notifications:
+  slack:
+    channel: "#aws-compliance"
+    severity_threshold: warning

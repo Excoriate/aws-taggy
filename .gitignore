@@ -46,6 +46,7 @@ temp/
 *.tfstate
 *.tfstate.*
 .terragrunt-cache/
+*.tfplan
 
 # Misc
 .history/
