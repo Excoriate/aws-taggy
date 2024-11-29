@@ -1,0 +1,120 @@
+version: "1.0"
+
+# Global configuration for tag compliance
+global:
+  default_compliance_level: standard
+
+# Resource-specific configurations
+resources:
+  s3:
+    enabled: true
+    tag_criteria:
+      minimum_required_tags: 5
+      required_tags:
+        - Environment
+        - Owner
+        - Project
+        - DataClassification
+        - CostCenter
+
+# Compliance levels definition
+compliance_levels:
+  high:
+    required_tags:
+      - Environment
+      - Owner
+      - Project
+      - DataClassification
+      - CostCenter
+      - SecurityApproved
+    specific_tags:
+      SecurityApproved: "true"
+
+  standard:
+    required_tags:
+      - Environment
+      - Owner
+      - Project
+      - DataClassification
+      - CostCenter
+
+  low:
+    required_tags:
+      - Environment
+      - Owner
+
+# Tag validation rules
+tag_validation:
+  # Prohibited tag keys
+  prohibited_tags:
+    - "aws:"
+    - "temp:"
+    - "test:"
+
+  # Tag key format rules
+  key_format_rules:
+    - pattern: "^[a-z][a-z0-9_-]*$"
+      message: "Tag keys must start with lowercase and contain only lowercase letters, numbers, underscores, and hyphens"
+
+  # Value validation
+  value_validation:
+    allowed_characters: "a-zA-Z0-9._-"
+    disallowed_values:
+      - "undefined"
+      - "null"
+      - "none"
+      - "n/a"
+
+  # Length constraints
+  length_rules:
+    environment:
+      min_length: 2
+      max_length: 15
+      message: "Environment tag must be between 2 and 15 characters"
+    owner:
+      min_length: 3
+      max_length: 50
+      message: "Owner tag must be between 3 and 50 characters"
+    project:
+      min_length: 4
+      max_length: 30
+      message: "Project tag must be between 4 and 30 characters"
+
+  # Allowed values for specific tags
+  allowed_values:
+    Environment:
+      - production
+      - staging
+      - development
+      - sandbox
+    DataClassification:
+      - public
+      - internal
+      - confidential
+      - restricted
+    SecurityLevel:
+      - high
+      - medium
+      - low
+
+  # Case sensitivity rules
+  case_sensitivity:
+    Environment:
+      mode: strict
+    DataClassification:
+      mode: strict
+
+  # Pattern rules for specific tags
+  pattern_rules:
+    CostCenter: "^[A-Z]{2}-[0-9]{4}$"
+    Owner: "^[a-z0-9._%+-]+@company\\.com$"
+
+# Notification configuration
+notifications:
+  slack:
+    enabled: true
+    channels:
+      high_priority: "compliance-alerts"
+      standard: "compliance-reports"
+  email:
+    enabled: false
