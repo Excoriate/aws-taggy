@@ -6,73 +6,92 @@ This example demonstrates multiple tag compliance violations for an AWS S3 bucke
 
 ## Compliance Violations
 
-### 1. Prohibited Tags
+### 1. Tag Count Violation
+
+- Total tags: 10 (exceeds maximum allowed of 8)
+
+### 2. Prohibited Tags (3 violations)
 
 - `temp:test`: Temporary tags are explicitly forbidden
 - `test:example`: Test-related tags are not allowed
+- `random:tag`: Random tags are not permitted
 
-### 2. Invalid Tag Keys
+### 3. Invalid Tag Key Format (7 violations)
 
-- `ENVIRONMENT`: Uppercase tag keys are not permitted
+Tags must be lowercase and start with a letter. Found:
+
+- `ENVIRONMENT`: Uppercase not permitted
 - `Owner`: Incorrect capitalization
-- `Sensitive`: Unexpected capitalized tag
+- `Sensitive`: Incorrect capitalization
+- `RANDOM_TAG`: Uppercase not permitted
+- And other non-compliant keys
 
-### 3. Incorrect Tag Values
+### 4. Case Sensitivity Violations
 
-- `environment`: "development" is not an allowed value
-- `data_class`: "unknown" is not a valid classification
-- `Owner`: Email does not match required domain
-- `project`: Contains uppercase letters
-- `cost_center`: Incorrect format
+Multiple tags violate case sensitivity rules:
 
-### 4. Additional Issues
-
-- Unexpected tags like `random:tag`
-- Inconsistent tag naming conventions
+- `ENVIRONMENT`: Should be lowercase
+- `Owner`: Should be lowercase
+- `Sensitive`: Should be lowercase
 
 ## Compliance Rules
 
 The example enforces strict tagging rules:
 
-- Lowercase tag keys only
-- Specific allowed values for environment and data classification
-- Company email domain requirement
-- Specific project name and cost center formats
-- No temporary or test-related tags
+- Maximum 8 tags per resource
+- Lowercase tag keys only (`^[a-z][a-z0-9_-]*$`)
+- No tags with prefixes: "temp:", "test:", "random:"
+- Required tags:
+  - project
+  - environment
+  - owner
+  - data_class
+  - cost_center
 
 ## Expected Compliance Check Results
 
 The compliance check will report multiple violations:
 
-- Prohibited tag detection
-- Uppercase tag key warnings
-- Invalid email format errors
-- Incorrect tag value formats
-- Missing or improperly formatted required tags
+```
+📊 Compliance Summary:
+Total Resources: 1
+Compliant: 0
+Non-Compliant: 1
+
+Violation Types:
+🚨 excess_tags: 1 occurrences
+🚨 prohibited_tag: 3 occurrences
+🚨 invalid_key_format: 7 occurrences
+🚨 case_violation: 1 occurrences
+```
 
 ## Learning Objectives
 
-- Understand complex tag compliance rules
-- Recognize common tagging mistakes
-- Learn best practices for resource tagging
-
-## Recommended Fixes
-
-1. Remove temporary and test tags
-2. Use lowercase tag keys
-3. Provide a valid company email
-4. Use allowed tag values
-5. Follow specified tag formatting rules
+- Understand and identify common tag compliance violations
+- Learn AWS resource tagging best practices
+- Experience with real-world tag validation scenarios
 
 ## Usage
 
 ```bash
-# Run Terraform plan and compliance check
-./run.sh plan
+# Create infrastructure and run compliance check
+./run.sh run
 
-# Apply infrastructure with compliance validation
-./run.sh apply
+# Run compliance check on existing infrastructure
+./run.sh run-cli
 
 # Destroy infrastructure
 ./run.sh destroy
 ```
+
+## Recommended Fixes
+
+1. Reduce total number of tags to 8 or fewer
+2. Remove prohibited tags:
+   - Remove `temp:test`
+   - Remove `test:example`
+   - Remove `random:tag`
+3. Fix tag key formatting:
+   - Convert all uppercase tags to lowercase
+   - Ensure all tag keys start with a letter
+4. Follow case sensitivity rules consistently

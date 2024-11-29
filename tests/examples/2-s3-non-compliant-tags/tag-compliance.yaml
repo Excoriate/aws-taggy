@@ -2,15 +2,30 @@ version: "1.0"
 resource_type: aws_s3_bucket
 compliance_level: high
 
+aws:
+  regions:
+    mode: specific
+    list:
+      - us-east-1
+  batch_size: 50
+
+resources:
+  s3:
+    enabled: true
+    tag_criteria:
+      minimum_required_tags: 5
+      max_tags: 8
+
 global:
   tag_criteria:
     minimum_required_tags: 5
-    max_tags: 10
+    max_tags: 8
 
 tag_validation:
   prohibited_tags:
     - "temp:"
     - "test:"
+    - "random:"
 
   key_format_rules:
     - pattern: "^[a-z][a-z0-9_-]*$"
@@ -38,6 +53,10 @@ tag_validation:
     project:
       case: lowercase
     owner:
+      case: lowercase
+    data_class:
+      case: lowercase
+    cost_center:
       case: lowercase
 
   length_rules:

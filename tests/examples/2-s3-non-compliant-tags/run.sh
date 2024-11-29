@@ -9,7 +9,7 @@ source "${PROJECT_ROOT}/scripts/run_me.sh"
 source "${PROJECT_ROOT}/scripts/terraform_manage.sh"
 
 # Example-specific configuration
-EXAMPLE_NAME="1-s3-specific-tags"
+EXAMPLE_NAME="2-s3-non-compliant-tags"
 
 # Validate AWS credentials
 validate_aws_credentials() {
@@ -90,7 +90,7 @@ run_example() {
 run_compliance_check() {
   local example_name="${1}"
   local config_file="${PROJECT_ROOT}/tests/examples/${example_name}/tag-compliance.yaml"
-  local resource_name="aws-taggy"
+  local resource_name="arn:aws:s3:::aws-taggy-non-compliant"
 
   log INFO "Running compliance check from source code"
   go run "${PROJECT_ROOT}/cli/main.go" compliance check \
