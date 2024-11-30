@@ -64,19 +64,19 @@ func (d *DiscoverCmd) discoverResources(client *taggy.TaggyClient, logger *o11y.
 
 	logger.Info(fmt.Sprintf("🔍 Discovering %s resources in region %s", d.Service, d.Region))
 
-	// Create a scanner manager
-	scannerManager, err := inspector.NewScannerManager(*client.Config())
+	// Create a inspector manager
+	inspectorManager, err := inspector.NewInspectorManager(*client.Config())
 	if err != nil {
-		return fmt.Errorf("failed to create scanner manager: %w", err)
+		return fmt.Errorf("failed to create inspector manager: %w", err)
 	}
 
 	// Perform the scan
-	if err := scannerManager.Scan(ctx); err != nil {
+	if err := inspectorManager.Scan(ctx); err != nil {
 		return fmt.Errorf("discovery encountered errors: %v", err)
 	}
 
 	// Process discovery results
-	results := scannerManager.GetResults()
+	inspectResults := inspectorManager.GetResults()
 
 	// Prepare table data
 	type ResourceRow struct {
@@ -92,7 +92,7 @@ func (d *DiscoverCmd) discoverResources(client *taggy.TaggyClient, logger *o11y.
 
 	// Process all resources regardless of region for S3 buckets
 	if d.Service == "s3" {
-		for _, result := range results {
+		for _, result := range inspectResults {
 			for _, resource := range result.Resources {
 				hasTags := len(resource.Tags) > 0
 
@@ -117,7 +117,7 @@ func (d *DiscoverCmd) discoverResources(client *taggy.TaggyClient, logger *o11y.
 		}
 	} else {
 		// For non-S3 resources, filter by specified region
-		result, exists := results[d.Region]
+		result, exists := inspectResults[d.Region]
 		if !exists {
 			logger.Info(fmt.Sprintf("No %s resources found in region %s", d.Service, d.Region))
 			return nil

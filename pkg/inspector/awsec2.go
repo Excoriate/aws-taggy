@@ -47,18 +47,18 @@ func (s *EC2Scanner) getRegionFromAZ(az string) string {
 	return s.Regions[0] // fallback to first configured region
 }
 
-// Scan discovers EC2 instances and their metadata across specified regions
-func (s *EC2Scanner) Scan(ctx context.Context, config configuration.TaggyScanConfig) (*ScanResult, error) {
+// Inspect discovers EC2 instances and their metadata across specified regions
+func (s *EC2Scanner) Inspect(ctx context.Context, config configuration.TaggyScanConfig) (*InspectResult, error) {
 	s.Logger.Info("Starting EC2 resource scanning",
 		"regions", s.Regions)
 
-	result := &ScanResult{
+	result := &InspectResult{
 		StartTime: time.Now(),
 		Region:    s.Regions[0],
 	}
 
 	// Create async scanner with default config
-	scanner := NewAsyncResourceScanner(DefaultScanConfig())
+	scanner := NewAsyncResourceInspector(DefaultInspectorConfig())
 
 	// Define the resource discoverer function
 	discoverer := func(ctx context.Context, region string) ([]interface{}, error) {

@@ -11,8 +11,8 @@ import (
 	"github.com/Excoriate/aws-taggy/pkg/o11y"
 )
 
-// ScanResult represents the outcome of a resource scanning operation
-type ScanResult struct {
+// InspectResult represents the outcome of a resource inspection operation
+type InspectResult struct {
 	Resources      []ResourceMetadata `json:"resources"`
 	StartTime      time.Time          `json:"start_time"`
 	EndTime        time.Time          `json:"end_time"`
@@ -24,8 +24,8 @@ type ScanResult struct {
 
 // Inspector defines the interface for cloud resource inspection operations
 type Inspector interface {
-	// Scan performs a discovery operation for resources of a specific type
-	Scan(ctx context.Context, config configuration.TaggyScanConfig) (*ScanResult, error)
+	// Inspect performs a discovery operation for resources of a specific type
+	Inspect(ctx context.Context, config configuration.TaggyScanConfig) (*InspectResult, error)
 
 	// Fetch retrieves detailed information about a specific resource
 	Fetch(ctx context.Context, arn string, config configuration.TaggyScanConfig) (*ResourceMetadata, error)
@@ -55,20 +55,20 @@ func New(resourceType string, cfg configuration.TaggyScanConfig) (Inspector, err
 	}
 }
 
-// ScannerManager manages scanning operations across multiple resource types
-type ScannerManager struct {
-	scanners map[string]Inspector
-	config   configuration.TaggyScanConfig
-	results  map[string]*ScanResult
-	logger   *o11y.Logger
-	errors   []string
+// InspectorManager manages scanning operations across multiple resource types
+type InspectorManager struct {
+	inspectors map[string]Inspector
+	config     configuration.TaggyScanConfig
+	results    map[string]*InspectResult
+	logger     *o11y.Logger
+	errors     []string
 }
 
-// NewScannerManager creates a new scanner manager based on the configuration
-func NewScannerManager(config configuration.TaggyScanConfig) (*ScannerManager, error) {
+// NewInspectorManager creates a new inspector manager based on the configuration
+func NewInspectorManager(config configuration.TaggyScanConfig) (*InspectorManager, error) {
 	logger := o11y.DefaultLogger()
-	scanners := make(map[string]Inspector)
-	results := make(map[string]*ScanResult)
+	inspectors := make(map[string]Inspector)
+	results := make(map[string]*InspectResult)
 	errors := []string{}
 
 	// Iterate through configured resources and create scanners
@@ -96,33 +96,33 @@ func NewScannerManager(config configuration.TaggyScanConfig) (*ScannerManager, e
 			continue
 		}
 
-		scanners[resourceType] = scanner
+		inspectors[resourceType] = scanner
 	}
 
-	return &ScannerManager{
-		scanners: scanners,
-		config:   config,
-		results:  results,
-		logger:   logger,
-		errors:   errors,
+	return &InspectorManager{
+		inspectors: inspectors,
+		config:     config,
+		results:    results,
+		logger:     logger,
+		errors:     errors,
 	}, nil
 }
 
 // Scan performs scanning for all configured resource types
-func (sm *ScannerManager) Scan(ctx context.Context) error {
+func (sm *InspectorManager) Scan(ctx context.Context) error {
 	var wg sync.WaitGroup
 	var mu sync.Mutex
-	errChan := make(chan error, len(sm.scanners))
+	errChan := make(chan error, len(sm.inspectors))
 	sm.errors = []string{} // Reset errors slice
 
-	for resourceType, scanner := range sm.scanners {
+	for resourceType, scanner := range sm.inspectors {
 		wg.Add(1)
 		go func(rt string, s Inspector) {
 			defer wg.Done()
 
 			sm.logger.Info(fmt.Sprintf("Scanning resource type: %s", rt))
 
-			result, err := s.Scan(ctx, sm.config)
+			result, err := s.Inspect(ctx, sm.config)
 			if err != nil {
 				errorMsg := fmt.Sprintf("Scanning %s failed: %v", rt, err)
 				sm.logger.Error(errorMsg)
@@ -158,11 +158,11 @@ func (sm *ScannerManager) Scan(ctx context.Context) error {
 }
 
 // GetResults returns the scanning results for all resource types
-func (sm *ScannerManager) GetResults() map[string]*ScanResult {
+func (sm *InspectorManager) GetResults() map[string]*InspectResult {
 	return sm.results
 }
 
 // GetErrors returns the list of error messages encountered during scanning
-func (sm *ScannerManager) GetErrors() []string {
+func (sm *InspectorManager) GetErrors() []string {
 	return sm.errors
 }

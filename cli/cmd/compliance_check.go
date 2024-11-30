@@ -91,7 +91,7 @@ func (c *CheckCmd) Run() error {
 	}
 
 	// Initialize scanner manager
-	scannerMgr, err := inspector.NewScannerManager(*client.Config())
+	inspectorMgr, err := inspector.NewInspectorManager(*client.Config())
 	if err != nil {
 		return fmt.Errorf("failed to create scanner manager: %w", err)
 	}
@@ -99,19 +99,19 @@ func (c *CheckCmd) Run() error {
 	// Scan resources
 	logger.Info("🔍 Scanning AWS resources...")
 	ctx := context.Background()
-	if err := scannerMgr.Scan(ctx); err != nil {
+	if err := inspectorMgr.Scan(ctx); err != nil {
 		return fmt.Errorf("failed to scan resources: %w", err)
 	}
 
 	// Get scan results
-	scanResults := scannerMgr.GetResults()
+	inspectResults := inspectorMgr.GetResults()
 
 	// Filter resources if Resource flag is provided
 	if c.Resource != "" {
 		logger.Info(fmt.Sprintf("🔍 Filtering resources matching: %s", c.Resource))
-		filteredResults := make(map[string]*inspector.ScanResult)
+		filteredResults := make(map[string]*inspector.InspectResult)
 
-		for resourceType, result := range scanResults {
+		for resourceType, result := range inspectResults {
 			filteredResources := make([]inspector.ResourceMetadata, 0)
 			for _, resource := range result.Resources {
 				// Check if resource matches by ID or ARN
@@ -123,7 +123,7 @@ func (c *CheckCmd) Run() error {
 			}
 
 			if len(filteredResources) > 0 {
-				filteredResult := &inspector.ScanResult{
+				filteredResult := &inspector.InspectResult{
 					Resources:      filteredResources,
 					StartTime:      result.StartTime,
 					EndTime:        result.EndTime,
@@ -148,8 +148,8 @@ func (c *CheckCmd) Run() error {
 		}
 		logger.Info(fmt.Sprintf("✅ Found %d resources matching the filter", totalFilteredResources))
 
-		// Update scanResults with filtered results
-		scanResults = filteredResults
+		// Update inspectResults with filtered results
+		inspectResults = filteredResults
 	}
 
 	// Create compliance validator
@@ -181,7 +181,7 @@ func (c *CheckCmd) Run() error {
 		Passed:      true,
 	}
 
-	for _, result := range scanResults {
+	for _, result := range inspectResults {
 		for _, resource := range result.Resources {
 			validationResult := complianceValidator.ValidateTags(resource.Tags)
 

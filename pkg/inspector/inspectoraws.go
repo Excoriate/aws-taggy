@@ -18,36 +18,36 @@ type ResourceProcessor func(ctx context.Context, resource interface{}) (Resource
 // ResourceDiscoverer is a function type that discovers resources and sends them to a channel
 type ResourceDiscoverer func(ctx context.Context, region string) ([]interface{}, error)
 
-// ScanConfig holds configuration for the scanning process
-type ScanConfig struct {
+// InspectorConfig holds configuration for the scanning process
+type InspectorConfig struct {
 	Logger     *o11y.Logger
 	NumWorkers int
 	BatchSize  int
 }
 
-// DefaultScanConfig returns a default scan configuration
-func DefaultScanConfig() ScanConfig {
-	return ScanConfig{
+// DefaultInspectorConfig returns a default scan configuration
+func DefaultInspectorConfig() InspectorConfig {
+	return InspectorConfig{
 		Logger:     o11y.DefaultLogger(),
 		NumWorkers: 10,
 		BatchSize:  100,
 	}
 }
 
-// AsyncResourceScanner handles asynchronous resource scanning
-type AsyncResourceScanner struct {
-	config ScanConfig
+// AsyncResourceInspector handles asynchronous resource scanning
+type AsyncResourceInspector struct {
+	config InspectorConfig
 }
 
-// NewAsyncResourceScanner creates a new AsyncResourceScanner
-func NewAsyncResourceScanner(config ScanConfig) *AsyncResourceScanner {
-	return &AsyncResourceScanner{
+// NewAsyncResourceInspector creates a new AsyncResourceInspector
+func NewAsyncResourceInspector(config InspectorConfig) *AsyncResourceInspector {
+	return &AsyncResourceInspector{
 		config: config,
 	}
 }
 
 // ScanResources performs asynchronous resource scanning using the provided discoverer and processor functions
-func (s *AsyncResourceScanner) ScanResources(
+func (s *AsyncResourceInspector) ScanResources(
 	ctx context.Context,
 	regions []string,
 	discoverer ResourceDiscoverer,
