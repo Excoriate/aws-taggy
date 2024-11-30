@@ -91,7 +91,7 @@ func (c *CheckCmd) Run() error {
 	}
 
 	// Initialize scanner manager
-	inspectorMgr, err := inspector.NewInspectorManager(*client.Config())
+	inspectorMgr, err := inspector.NewInspectorManagerFromConfig(*client.Config())
 	if err != nil {
 		return fmt.Errorf("failed to create scanner manager: %w", err)
 	}

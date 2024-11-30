@@ -23,7 +23,7 @@ type S3Scanner struct {
 // NewS3Scanner creates a new S3Scanner with AWS client management
 func NewS3Scanner(regions []string) (*S3Scanner, error) {
 	// Create AWS client manager for the specified regions
-	clientManager, err := NewAWSClientManager(regions)
+	clientManager, err := NewAWSRegionalClientManager(regions)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create AWS client manager: %w", err)
 	}
@@ -138,7 +138,7 @@ func (s *S3Scanner) Inspect(ctx context.Context, config configuration.TaggyScanC
 	}
 
 	// Perform the async scan
-	resources, err := scanner.ScanResources(ctx, s.Regions, discoverer, processor)
+	resources, err := scanner.InspectResourcesAsync(ctx, s.Regions, discoverer, processor)
 	if err != nil {
 		return nil, fmt.Errorf("failed to scan S3 resources: %w", err)
 	}

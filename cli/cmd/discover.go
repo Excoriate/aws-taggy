@@ -65,7 +65,7 @@ func (d *DiscoverCmd) discoverResources(client *taggy.TaggyClient, logger *o11y.
 	logger.Info(fmt.Sprintf("🔍 Discovering %s resources in region %s", d.Service, d.Region))
 
 	// Create a inspector manager
-	inspectorManager, err := inspector.NewInspectorManager(*client.Config())
+	inspectorManager, err := inspector.NewInspectorManagerFromConfig(*client.Config())
 	if err != nil {
 		return fmt.Errorf("failed to create inspector manager: %w", err)
 	}

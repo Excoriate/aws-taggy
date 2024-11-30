@@ -23,7 +23,7 @@ type VPCScanner struct {
 // NewVPCScanner creates a new VPCScanner with AWS client management
 func NewVPCScanner(regions []string) (*VPCScanner, error) {
 	// Create AWS client manager for the specified regions
-	clientManager, err := NewAWSClientManager(regions)
+	clientManager, err := NewAWSRegionalClientManager(regions)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create AWS client manager: %w", err)
 	}
@@ -110,7 +110,7 @@ func (s *VPCScanner) Inspect(ctx context.Context, config configuration.TaggyScan
 	}
 
 	// Perform the async scan
-	resources, err := scanner.ScanResources(ctx, s.Regions, discoverer, processor)
+	resources, err := scanner.InspectResourcesAsync(ctx, s.Regions, discoverer, processor)
 	if err != nil {
 		return nil, fmt.Errorf("failed to scan VPC resources: %w", err)
 	}

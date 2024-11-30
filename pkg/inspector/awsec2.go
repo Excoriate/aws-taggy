@@ -23,7 +23,7 @@ type EC2Scanner struct {
 // NewEC2Scanner creates a new EC2Scanner with AWS client management
 func NewEC2Scanner(regions []string) (*EC2Scanner, error) {
 	// Create AWS client manager for the specified regions
-	clientManager, err := NewAWSClientManager(regions)
+	clientManager, err := NewAWSRegionalClientManager(regions)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create AWS client manager: %w", err)
 	}
@@ -123,7 +123,7 @@ func (s *EC2Scanner) Inspect(ctx context.Context, config configuration.TaggyScan
 	}
 
 	// Perform the async scan
-	resources, err := scanner.ScanResources(ctx, s.Regions, discoverer, processor)
+	resources, err := scanner.InspectResourcesAsync(ctx, s.Regions, discoverer, processor)
 	if err != nil {
 		return nil, fmt.Errorf("failed to scan EC2 resources: %w", err)
 	}
