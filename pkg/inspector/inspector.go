@@ -108,8 +108,8 @@ func NewInspectorManager(config configuration.TaggyScanConfig) (*InspectorManage
 	}, nil
 }
 
-// Scan performs scanning for all configured resource types
-func (sm *InspectorManager) Scan(ctx context.Context) error {
+// Inspect performs scanning for all configured resource types
+func (sm *InspectorManager) Inspect(ctx context.Context) error {
 	var wg sync.WaitGroup
 	var mu sync.Mutex
 	errChan := make(chan error, len(sm.inspectors))

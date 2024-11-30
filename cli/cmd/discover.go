@@ -71,7 +71,7 @@ func (d *DiscoverCmd) discoverResources(client *taggy.TaggyClient, logger *o11y.
 	}
 
 	// Perform the scan
-	if err := inspectorManager.Scan(ctx); err != nil {
+	if err := inspectorManager.Inspect(ctx); err != nil {
 		return fmt.Errorf("discovery encountered errors: %v", err)
 	}
 

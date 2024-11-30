@@ -99,7 +99,7 @@ func (c *CheckCmd) Run() error {
 	// Scan resources
 	logger.Info("🔍 Scanning AWS resources...")
 	ctx := context.Background()
-	if err := inspectorMgr.Scan(ctx); err != nil {
+	if err := inspectorMgr.Inspect(ctx); err != nil {
 		return fmt.Errorf("failed to scan resources: %w", err)
 	}
 
