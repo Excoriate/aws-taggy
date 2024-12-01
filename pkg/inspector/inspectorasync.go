@@ -44,47 +44,16 @@ func NewAsyncResourceInspector(config InspectorConfig) *AsyncResourceInspector {
 	}
 }
 
-// InspectResourcesAsync performs asynchronous resource scanning using the provided discoverer and processor functions
-// InspectResourcesAsync performs an asynchronous, parallel resource inspection across multiple regions.
-//
-// This method orchestrates a concurrent resource discovery and processing workflow. It takes a context,
-// a list of regions, a resource discoverer function, and a resource processor function as inputs.
-// The method discovers resources across specified regions in parallel and processes them concurrently
-// using a configurable number of worker goroutines.
-//
-// The method handles the entire lifecycle of resource inspection, including:
-//   - Parallel resource discovery across multiple regions
-//   - Concurrent resource processing
-//   - Error handling and logging
-//   - Aggregation of processed resource metadata
-//
-// Parameters:
-//   - ctx: A context.Context for managing cancellation, timeouts, and request-scoped values
-//   - regions: A slice of region identifiers to scan for resources
-//   - discoverer: A ResourceDiscoverer function that finds resources in a specific region
-//   - processor: A ResourceProcessor function that processes individual resources
-//
-// Returns:
-//   - A slice of ResourceMetadata containing processed resource information
-//   - An error if any critical failures occur during discovery or processing
-//
-// The method uses channels and wait groups to manage concurrent operations, ensuring
-// efficient and controlled parallel processing of resources.
-func (s *AsyncResourceInspector) InspectResourcesAsync(
+// startResourceDiscovery initiates parallel resource discovery for given regions
+func (s *AsyncResourceInspector) startResourceDiscovery(
 	ctx context.Context,
 	regions []string,
 	discoverer ResourceDiscoverer,
-	processor ResourceProcessor,
-) ([]ResourceMetadata, error) {
-	// Create channels for async processing
-	resourceChan := make(chan interface{}, s.config.BatchSize)
-	resultChan := make(chan ResourceMetadata, s.config.BatchSize)
-	errorChan := make(chan error, len(regions))
-
-	// WaitGroups for discovery and processing
-	var discoveryWg, processingWg sync.WaitGroup
-
-	// Start resource discovery goroutines
+	resourceChan chan interface{},
+	errorChan chan error,
+	discoveryWg *sync.WaitGroup,
+	processingWg *sync.WaitGroup,
+) {
 	for _, region := range regions {
 		discoveryWg.Add(1)
 		go func(r string) {
@@ -108,8 +77,16 @@ func (s *AsyncResourceInspector) InspectResourcesAsync(
 			}
 		}(region)
 	}
+}
 
-	// Start resource processing workers
+// startResourceProcessing starts worker goroutines to process resources
+func (s *AsyncResourceInspector) startResourceProcessing(
+	ctx context.Context,
+	resourceChan chan interface{},
+	resultChan chan ResourceMetadata,
+	processor ResourceProcessor,
+	processingWg *sync.WaitGroup,
+) {
 	for i := 0; i < s.config.NumWorkers; i++ {
 		go func(workerID int) {
 			for resource := range resourceChan {
@@ -137,8 +114,16 @@ func (s *AsyncResourceInspector) InspectResourcesAsync(
 			}
 		}(i)
 	}
+}
 
-	// Start a goroutine to close channels when all processing is done
+// manageChannelLifecycle handles closing of channels and waiting for goroutines
+func (s *AsyncResourceInspector) manageChannelLifecycle(
+	resourceChan chan interface{},
+	resultChan chan ResourceMetadata,
+	errorChan chan error,
+	discoveryWg *sync.WaitGroup,
+	processingWg *sync.WaitGroup,
+) {
 	go func() {
 		discoveryWg.Wait()  // Wait for all discovery goroutines
 		close(resourceChan) // Close resource channel when discovery is done
@@ -146,8 +131,13 @@ func (s *AsyncResourceInspector) InspectResourcesAsync(
 		close(resultChan)   // Close result channel
 		close(errorChan)    // Close error channel
 	}()
+}
 
-	// Collect results and errors
+// collectScanResults aggregates processed resources and errors
+func (s *AsyncResourceInspector) collectScanResults(
+	resultChan chan ResourceMetadata,
+	errorChan chan error,
+) ([]ResourceMetadata, []error) {
 	var results []ResourceMetadata
 	var scanErrors []error
 
@@ -160,6 +150,57 @@ func (s *AsyncResourceInspector) InspectResourcesAsync(
 	for metadata := range resultChan {
 		results = append(results, metadata)
 	}
+
+	return results, scanErrors
+}
+
+// InspectResourcesAsync performs asynchronous resource scanning using the provided discoverer and processor functions
+// InspectResourcesAsync performs an asynchronous, parallel scanning of resources across multiple regions.
+//
+// This method allows for efficient and concurrent discovery and processing of resources using
+// provided discoverer and processor functions. It supports:
+//   - Concurrent resource discovery across multiple regions
+//   - Parallel processing of discovered resources
+//   - Error aggregation and handling
+//   - Configurable batch sizes and concurrency
+//
+// Parameters:
+//   - ctx: A context for cancellation and timeout management
+//   - regions: A slice of region identifiers to scan
+//   - discoverer: A function that discovers resources in a given region
+//   - processor: A function that processes individual resources
+//
+// Returns:
+//   - A slice of ResourceMetadata containing processed resource information
+//   - An error if any scanning or processing errors occurred
+//
+// The method uses goroutines and channels to achieve high-performance, concurrent resource scanning.
+// It manages the entire lifecycle of discovery and processing, including error handling and resource tracking.
+func (s *AsyncResourceInspector) InspectResourcesAsync(
+	ctx context.Context,
+	regions []string,
+	discoverer ResourceDiscoverer,
+	processor ResourceProcessor,
+) ([]ResourceMetadata, error) {
+	// Create channels for async processing
+	resourceChan := make(chan interface{}, s.config.BatchSize)
+	resultChan := make(chan ResourceMetadata, s.config.BatchSize)
+	errorChan := make(chan error, len(regions))
+
+	// WaitGroups for discovery and processing
+	var discoveryWg, processingWg sync.WaitGroup
+
+	// Start resource discovery goroutines
+	s.startResourceDiscovery(ctx, regions, discoverer, resourceChan, errorChan, &discoveryWg, &processingWg)
+
+	// Start resource processing workers
+	s.startResourceProcessing(ctx, resourceChan, resultChan, processor, &processingWg)
+
+	// Manage channel lifecycle
+	s.manageChannelLifecycle(resourceChan, resultChan, errorChan, &discoveryWg, &processingWg)
+
+	// Collect results and errors
+	results, scanErrors := s.collectScanResults(resultChan, errorChan)
 
 	// Check for any errors
 	if len(scanErrors) > 0 {
