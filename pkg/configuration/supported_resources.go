@@ -12,12 +12,33 @@ var SupportedAWSResources = map[string]bool{
 	constants.ResourceTypeEC2:            true,
 	constants.ResourceTypeVPC:            true,
 	constants.ResourceTypeCloudWatchLogs: true,
+	constants.ResourceTypeRoute53:        true,
 	constants.ResourceTypeRDS:            false,
 	constants.ResourceTypeLambda:         false,
 	constants.ResourceTypeEKS:            false,
 	constants.ResourceTypeECR:            false,
 	constants.ResourceTypeCloudfront:     false,
-	constants.ResourceTypeRoute53:        false,
+}
+
+var SupportedAWSRegions = map[string]bool{
+	"us-east-1":      true,
+	"us-east-2":      true,
+	"us-west-1":      true,
+	"us-west-2":      true,
+	"ca-central-1":   true,
+	"eu-central-1":   true,
+	"eu-west-1":      true,
+	"eu-west-2":      true,
+	"eu-west-3":      true,
+	"eu-north-1":     true,
+	"ap-northeast-1": true,
+	"ap-northeast-2": true,
+	"ap-southeast-1": true,
+	"ap-southeast-2": true,
+	"ap-south-1":     true,
+	"sa-east-1":      true,
+	"me-south-1":     true,
+	"af-south-1":     true,
 }
 
 // NormalizeResourceType normalizes the resource type string by:

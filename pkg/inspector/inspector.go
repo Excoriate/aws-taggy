@@ -98,6 +98,7 @@ type Inspector interface {
 //   - S3 (Simple Storage Service)
 //   - EC2 (Elastic Compute Cloud)
 //   - VPC (Virtual Private Cloud)
+//   - Route 53 (AWS Route 53)
 //
 // Example usage:
 //
@@ -106,16 +107,12 @@ type Inspector interface {
 //	    // Handle error
 //	}
 func New(resourceType string, cfg configuration.TaggyScanConfig) (Inspector, error) {
-	// Validate regions
-	regions := cfg.AWS.Regions.List
-	if len(regions) == 0 {
-		return nil, fmt.Errorf("no regions specified for resource type %s", resourceType)
+	// Determine regions to use
+	regions, err := GetEffectiveRegions(cfg)
+	if err != nil {
+		return nil, fmt.Errorf("error getting effective regions: %w", err)
 	}
 
-	// Normalize resource type
-	resourceType = configuration.NormalizeResourceType(resourceType)
-
-	// Create inspector based on resource type
 	switch resourceType {
 	case constants.ResourceTypeS3:
 		return NewS3Inspector(regions)
@@ -125,6 +122,8 @@ func New(resourceType string, cfg configuration.TaggyScanConfig) (Inspector, err
 		return NewVPCInspector(regions)
 	case constants.ResourceTypeCloudWatchLogs:
 		return NewCloudWatchLogsInspector(regions)
+	case constants.ResourceTypeRoute53:
+		return NewRoute53Inspector(regions)
 	default:
 		return nil, fmt.Errorf("unsupported resource type: %s", resourceType)
 	}
