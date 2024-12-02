@@ -118,11 +118,13 @@ func New(resourceType string, cfg configuration.TaggyScanConfig) (Inspector, err
 	// Create inspector based on resource type
 	switch resourceType {
 	case constants.ResourceTypeS3:
-		return NewS3Scanner(regions)
+		return NewS3Inspector(regions)
 	case constants.ResourceTypeEC2:
 		return NewEC2Scanner(regions)
 	case constants.ResourceTypeVPC:
-		return NewVPCScanner(regions)
+		return NewVPCInspector(regions)
+	case constants.ResourceTypeCloudWatchLogs:
+		return NewCloudWatchLogsInspector(regions)
 	default:
 		return nil, fmt.Errorf("unsupported resource type: %s", resourceType)
 	}

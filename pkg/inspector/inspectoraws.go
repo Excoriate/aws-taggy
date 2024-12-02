@@ -7,8 +7,6 @@ import (
 
 	"github.com/Excoriate/aws-taggy/pkg/cloud"
 	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/service/ec2"
-	"github.com/aws/aws-sdk-go-v2/service/s3"
 )
 
 // ResourceProcessor is a function type that processes a single resource and returns its metadata
@@ -20,41 +18,6 @@ type ResourceDiscoverer func(ctx context.Context, region string) ([]interface{},
 // AWSClient is an interface for AWS service clients
 type AWSClient interface {
 	CreateFromConfig(cfg *aws.Config) interface{}
-}
-
-// S3ClientCreator implements AWSClient for S3
-type S3ClientCreator struct{}
-
-func (c *S3ClientCreator) CreateFromConfig(cfg *aws.Config) interface{} {
-	return s3.NewFromConfig(*cfg)
-}
-
-// EC2ClientCreator implements AWSClient for EC2
-type EC2ClientCreator struct{}
-
-// CreateFromConfig creates a new EC2 client from the provided AWS configuration.
-//
-// This method implements the AWSClient interface for EC2 client creation. It takes an AWS configuration
-// pointer and returns a new EC2 client instance that can be used to interact with AWS EC2 services.
-//
-// The method performs the following key operations:
-//  1. Dereferences the provided AWS configuration pointer
-//  2. Creates a new EC2 client using the ec2.NewFromConfig function
-//  3. Returns the created EC2 client as an interface{} to maintain flexibility
-//
-// Parameters:
-//   - cfg: A pointer to an aws.Config configuration object containing AWS credentials, region, and other settings
-//
-// Returns:
-//   - interface{}: A new EC2 client instance that can be type-asserted to *ec2.Client if needed
-//
-// Example:
-//
-//	clientCreator := &EC2ClientCreator{}
-//	awsConfig := // load AWS configuration
-//	ec2Client := clientCreator.CreateFromConfig(&awsConfig)
-func (c *EC2ClientCreator) CreateFromConfig(cfg *aws.Config) interface{} {
-	return ec2.NewFromConfig(*cfg)
 }
 
 // AWSClientManager manages AWS clients for different regions
@@ -173,47 +136,4 @@ func (m *AWSClientManager) GetClient(region string, creator AWSClient) (interfac
 	}
 
 	return creator.CreateFromConfig(cfg), nil
-}
-
-// GetS3Client retrieves an S3 client for a specific region
-// GetS3Client retrieves an Amazon S3 (Simple Storage Service) client for the specified AWS region.
-//
-// This method creates or retrieves an existing S3 client configuration for the given region.
-// It uses the AWSClientManager's internal client management to ensure efficient client reuse.
-//
-// Parameters:
-//   - region: The AWS region for which to create or retrieve the S3 client (e.g., "us-west-2", "eu-central-1")
-//
-// Returns:
-//   - *s3.Client: A configured AWS S3 client for the specified region
-//   - error: An error if the client creation fails, otherwise nil
-//
-// The method is safe for concurrent use due to the underlying mutex-protected client management.
-func (m *AWSClientManager) GetS3Client(region string) (*s3.Client, error) {
-	client, err := m.GetClient(region, &S3ClientCreator{})
-	if err != nil {
-		return nil, err
-	}
-	return client.(*s3.Client), nil
-}
-
-// GetEC2Client retrieves an Amazon EC2 (Elastic Compute Cloud) client for the specified AWS region.
-//
-// This method creates or retrieves an existing EC2 client configuration for the given region.
-// It uses the AWSClientManager's internal client management to ensure efficient client reuse.
-//
-// Parameters:
-//   - region: The AWS region for which to create or retrieve the EC2 client (e.g., "us-west-2", "eu-central-1")
-//
-// Returns:
-//   - *ec2.Client: A configured AWS EC2 client for the specified region
-//   - error: An error if the client creation fails, otherwise nil
-//
-// The method is safe for concurrent use due to the underlying mutex-protected client management.
-func (m *AWSClientManager) GetEC2Client(region string) (*ec2.Client, error) {
-	client, err := m.GetClient(region, &EC2ClientCreator{})
-	if err != nil {
-		return nil, err
-	}
-	return client.(*ec2.Client), nil
 }

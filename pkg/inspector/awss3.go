@@ -13,15 +13,44 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 )
 
-// S3Scanner implements the Scanner interface for AWS S3 resources
-type S3Scanner struct {
+// S3ClientCreator implements AWSClient for S3
+type S3ClientCreator struct{}
+
+func (c *S3ClientCreator) CreateFromConfig(cfg *aws.Config) interface{} {
+	return s3.NewFromConfig(*cfg)
+}
+
+// GetS3Client retrieves an S3 client for a specific region
+// GetS3Client retrieves an Amazon S3 (Simple Storage Service) client for the specified AWS region.
+//
+// This method creates or retrieves an existing S3 client configuration for the given region.
+// It uses the AWSClientManager's internal client management to ensure efficient client reuse.
+//
+// Parameters:
+//   - region: The AWS region for which to create or retrieve the S3 client (e.g., "us-west-2", "eu-central-1")
+//
+// Returns:
+//   - *s3.Client: A configured AWS S3 client for the specified region
+//   - error: An error if the client creation fails, otherwise nil
+//
+// The method is safe for concurrent use due to the underlying mutex-protected client management.
+func (m *AWSClientManager) GetS3Client(region string) (*s3.Client, error) {
+	client, err := m.GetClient(region, &S3ClientCreator{})
+	if err != nil {
+		return nil, err
+	}
+	return client.(*s3.Client), nil
+}
+
+// S3Inspector implements the Scanner interface for AWS S3 resources
+type S3Inspector struct {
 	Regions       []string
 	ClientManager *AWSClientManager
 	Logger        *o11y.Logger
 }
 
-// NewS3Scanner creates a new S3Scanner with AWS client management
-func NewS3Scanner(regions []string) (*S3Scanner, error) {
+// NewS3Inspector creates a new S3Inspector with AWS client management
+func NewS3Inspector(regions []string) (*S3Inspector, error) {
 	// Create AWS client manager for the specified regions
 	clientManager, err := NewAWSRegionalClientManager(regions)
 	if err != nil {
@@ -31,7 +60,7 @@ func NewS3Scanner(regions []string) (*S3Scanner, error) {
 	// Create a default logger
 	logger := o11y.DefaultLogger()
 
-	return &S3Scanner{
+	return &S3Inspector{
 		Regions:       regions,
 		ClientManager: clientManager,
 		Logger:        logger,
@@ -39,7 +68,7 @@ func NewS3Scanner(regions []string) (*S3Scanner, error) {
 }
 
 // Inspect discovers S3 buckets and their metadata across specified regions
-func (s *S3Scanner) Inspect(ctx context.Context, config configuration.TaggyScanConfig) (*InspectResult, error) {
+func (s *S3Inspector) Inspect(ctx context.Context, config configuration.TaggyScanConfig) (*InspectResult, error) {
 	s.Logger.Info("Starting S3 resource scanning",
 		"regions", s.Regions)
 
@@ -157,7 +186,7 @@ func (s *S3Scanner) Inspect(ctx context.Context, config configuration.TaggyScanC
 }
 
 // listBuckets retrieves all S3 buckets
-func (s *S3Scanner) listBuckets(ctx context.Context, client *s3.Client) ([]types.Bucket, error) {
+func (s *S3Inspector) listBuckets(ctx context.Context, client *s3.Client) ([]types.Bucket, error) {
 	output, err := client.ListBuckets(ctx, &s3.ListBucketsInput{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to list buckets: %w", err)
@@ -166,7 +195,7 @@ func (s *S3Scanner) listBuckets(ctx context.Context, client *s3.Client) ([]types
 }
 
 // getBucketTags retrieves tags for a specific bucket
-func (s *S3Scanner) getBucketTags(ctx context.Context, client *s3.Client, bucketName string) (map[string]string, error) {
+func (s *S3Inspector) getBucketTags(ctx context.Context, client *s3.Client, bucketName string) (map[string]string, error) {
 	// First, try to get the bucket location
 	locationOutput, err := client.GetBucketLocation(ctx, &s3.GetBucketLocationInput{
 		Bucket: aws.String(bucketName),
@@ -225,7 +254,7 @@ func (s *S3Scanner) getBucketTags(ctx context.Context, client *s3.Client, bucket
 }
 
 // Fetch implements the Scanner interface for retrieving specific S3 bucket details
-func (s *S3Scanner) Fetch(ctx context.Context, arn string, config configuration.TaggyScanConfig) (*ResourceMetadata, error) {
+func (s *S3Inspector) Fetch(ctx context.Context, arn string, config configuration.TaggyScanConfig) (*ResourceMetadata, error) {
 	// Parse bucket name from ARN
 	bucketName, err := ParseS3ARN(arn)
 	if err != nil {

@@ -13,15 +13,64 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
 )
 
-// EC2Scanner implements the Inspector interface for AWS EC2 resources
-type EC2Scanner struct {
+// EC2ClientCreator implements AWSClient for EC2
+type EC2ClientCreator struct{}
+
+// CreateFromConfig creates a new EC2 client from the provided AWS configuration.
+//
+// This method implements the AWSClient interface for EC2 client creation. It takes an AWS configuration
+// pointer and returns a new EC2 client instance that can be used to interact with AWS EC2 services.
+//
+// The method performs the following key operations:
+//  1. Dereferences the provided AWS configuration pointer
+//  2. Creates a new EC2 client using the ec2.NewFromConfig function
+//  3. Returns the created EC2 client as an interface{} to maintain flexibility
+//
+// Parameters:
+//   - cfg: A pointer to an aws.Config configuration object containing AWS credentials, region, and other settings
+//
+// Returns:
+//   - interface{}: A new EC2 client instance that can be type-asserted to *ec2.Client if needed
+//
+// Example:
+//
+//	clientCreator := &EC2ClientCreator{}
+//	awsConfig := // load AWS configuration
+//	ec2Client := clientCreator.CreateFromConfig(&awsConfig)
+func (c *EC2ClientCreator) CreateFromConfig(cfg *aws.Config) interface{} {
+	return ec2.NewFromConfig(*cfg)
+}
+
+// GetEC2Client retrieves an Amazon EC2 (Elastic Compute Cloud) client for the specified AWS region.
+//
+// This method creates or retrieves an existing EC2 client configuration for the given region.
+// It uses the AWSClientManager's internal client management to ensure efficient client reuse.
+//
+// Parameters:
+//   - region: The AWS region for which to create or retrieve the EC2 client (e.g., "us-west-2", "eu-central-1")
+//
+// Returns:
+//   - *ec2.Client: A configured AWS EC2 client for the specified region
+//   - error: An error if the client creation fails, otherwise nil
+//
+// The method is safe for concurrent use due to the underlying mutex-protected client management.
+func (m *AWSClientManager) GetEC2Client(region string) (*ec2.Client, error) {
+	client, err := m.GetClient(region, &EC2ClientCreator{})
+	if err != nil {
+		return nil, err
+	}
+	return client.(*ec2.Client), nil
+}
+
+// EC2Inspector implements the Inspector interface for AWS EC2 resources
+type EC2Inspector struct {
 	Regions       []string
 	ClientManager *AWSClientManager
 	Logger        *o11y.Logger
 }
 
 // NewEC2Scanner creates a new EC2Scanner with AWS client management
-func NewEC2Scanner(regions []string) (*EC2Scanner, error) {
+func NewEC2Scanner(regions []string) (*EC2Inspector, error) {
 	// Create AWS client manager for the specified regions
 	clientManager, err := NewAWSRegionalClientManager(regions)
 	if err != nil {
@@ -31,7 +80,7 @@ func NewEC2Scanner(regions []string) (*EC2Scanner, error) {
 	// Create a default logger
 	logger := o11y.DefaultLogger()
 
-	return &EC2Scanner{
+	return &EC2Inspector{
 		Regions:       regions,
 		ClientManager: clientManager,
 		Logger:        logger,
@@ -39,7 +88,7 @@ func NewEC2Scanner(regions []string) (*EC2Scanner, error) {
 }
 
 // getRegionFromAZ extracts the region from an availability zone
-func (s *EC2Scanner) getRegionFromAZ(az string) string {
+func (s *EC2Inspector) getRegionFromAZ(az string) string {
 	// AZ format is like "us-east-1a", so remove the last character to get the region
 	if len(az) > 0 {
 		return az[:len(az)-1]
@@ -48,7 +97,7 @@ func (s *EC2Scanner) getRegionFromAZ(az string) string {
 }
 
 // Inspect discovers EC2 instances and their metadata across specified regions
-func (s *EC2Scanner) Inspect(ctx context.Context, config configuration.TaggyScanConfig) (*InspectResult, error) {
+func (s *EC2Inspector) Inspect(ctx context.Context, config configuration.TaggyScanConfig) (*InspectResult, error) {
 	s.Logger.Info("Starting EC2 resource scanning",
 		"regions", s.Regions)
 
@@ -142,7 +191,7 @@ func (s *EC2Scanner) Inspect(ctx context.Context, config configuration.TaggyScan
 }
 
 // listInstances retrieves all EC2 instances in a region
-func (s *EC2Scanner) listInstances(ctx context.Context, client *ec2.Client) ([]types.Instance, error) {
+func (s *EC2Inspector) listInstances(ctx context.Context, client *ec2.Client) ([]types.Instance, error) {
 	input := &ec2.DescribeInstancesInput{}
 	output, err := client.DescribeInstances(ctx, input)
 	if err != nil {
@@ -157,7 +206,7 @@ func (s *EC2Scanner) listInstances(ctx context.Context, client *ec2.Client) ([]t
 }
 
 // getInstanceName extracts the Name tag or returns a default name
-func (s *EC2Scanner) getInstanceName(instance types.Instance) string {
+func (s *EC2Inspector) getInstanceName(instance types.Instance) string {
 	for _, tag := range instance.Tags {
 		if aws.ToString(tag.Key) == "Name" {
 			return aws.ToString(tag.Value)
@@ -170,7 +219,7 @@ func (s *EC2Scanner) getInstanceName(instance types.Instance) string {
 }
 
 // Fetch implements the Inspector interface for retrieving specific EC2 instance details
-func (s *EC2Scanner) Fetch(ctx context.Context, arn string, config configuration.TaggyScanConfig) (*ResourceMetadata, error) {
+func (s *EC2Inspector) Fetch(ctx context.Context, arn string, config configuration.TaggyScanConfig) (*ResourceMetadata, error) {
 	// Parse instance ID and region from ARN
 	instanceID, region, err := ParseEC2ARN(arn)
 	if err != nil {

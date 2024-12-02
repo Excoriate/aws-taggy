@@ -8,15 +8,16 @@ import (
 )
 
 var SupportedAWSResources = map[string]bool{
-	constants.ResourceTypeS3:         true,
-	constants.ResourceTypeEC2:        true,
-	constants.ResourceTypeVPC:        true,
-	constants.ResourceTypeRDS:        false,
-	constants.ResourceTypeLambda:     false,
-	constants.ResourceTypeEKS:        false,
-	constants.ResourceTypeECR:        false,
-	constants.ResourceTypeCloudfront: false,
-	constants.ResourceTypeRoute53:    false,
+	constants.ResourceTypeS3:             true,
+	constants.ResourceTypeEC2:            true,
+	constants.ResourceTypeVPC:            true,
+	constants.ResourceTypeCloudWatchLogs: true,
+	constants.ResourceTypeRDS:            false,
+	constants.ResourceTypeLambda:         false,
+	constants.ResourceTypeEKS:            false,
+	constants.ResourceTypeECR:            false,
+	constants.ResourceTypeCloudfront:     false,
+	constants.ResourceTypeRoute53:        false,
 }
 
 // NormalizeResourceType normalizes the resource type string by:

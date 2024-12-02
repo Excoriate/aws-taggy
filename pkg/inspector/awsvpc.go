@@ -13,15 +13,15 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/ec2/types"
 )
 
-// VPCScanner implements the Inspector interface for AWS VPC resources
-type VPCScanner struct {
+// VPCInspector implements the Inspector interface for AWS VPC resources
+type VPCInspector struct {
 	Regions       []string
 	ClientManager *AWSClientManager
 	Logger        *o11y.Logger
 }
 
-// NewVPCScanner creates a new VPCScanner with AWS client management
-func NewVPCScanner(regions []string) (*VPCScanner, error) {
+// NewVPCInspector creates a new VPCInspector with AWS client management
+func NewVPCInspector(regions []string) (*VPCInspector, error) {
 	// Create AWS client manager for the specified regions
 	clientManager, err := NewAWSRegionalClientManager(regions)
 	if err != nil {
@@ -31,7 +31,7 @@ func NewVPCScanner(regions []string) (*VPCScanner, error) {
 	// Create a default logger
 	logger := o11y.DefaultLogger()
 
-	return &VPCScanner{
+	return &VPCInspector{
 		Regions:       regions,
 		ClientManager: clientManager,
 		Logger:        logger,
@@ -39,7 +39,7 @@ func NewVPCScanner(regions []string) (*VPCScanner, error) {
 }
 
 // Inspect discovers VPCs and their metadata across specified regions
-func (s *VPCScanner) Inspect(ctx context.Context, config configuration.TaggyScanConfig) (*InspectResult, error) {
+func (s *VPCInspector) Inspect(ctx context.Context, config configuration.TaggyScanConfig) (*InspectResult, error) {
 	s.Logger.Info("Starting VPC resource scanning",
 		"regions", s.Regions)
 
@@ -129,7 +129,7 @@ func (s *VPCScanner) Inspect(ctx context.Context, config configuration.TaggyScan
 }
 
 // listVPCs retrieves all VPCs in a region
-func (s *VPCScanner) listVPCs(ctx context.Context, client *ec2.Client) ([]types.Vpc, error) {
+func (s *VPCInspector) listVPCs(ctx context.Context, client *ec2.Client) ([]types.Vpc, error) {
 	input := &ec2.DescribeVpcsInput{}
 	output, err := client.DescribeVpcs(ctx, input)
 	if err != nil {
@@ -140,7 +140,7 @@ func (s *VPCScanner) listVPCs(ctx context.Context, client *ec2.Client) ([]types.
 }
 
 // getVPCName extracts the Name tag or returns a default name
-func (s *VPCScanner) getVPCName(vpc types.Vpc) string {
+func (s *VPCInspector) getVPCName(vpc types.Vpc) string {
 	for _, tag := range vpc.Tags {
 		if aws.ToString(tag.Key) == "Name" {
 			return aws.ToString(tag.Value)
@@ -153,12 +153,12 @@ func (s *VPCScanner) getVPCName(vpc types.Vpc) string {
 }
 
 // getVPCStatus determines the VPC status
-func (s *VPCScanner) getVPCStatus(vpc types.Vpc) string {
+func (s *VPCInspector) getVPCStatus(vpc types.Vpc) string {
 	return string(vpc.State)
 }
 
 // Fetch implements the Inspector interface for retrieving specific VPC details
-func (s *VPCScanner) Fetch(ctx context.Context, arn string, config configuration.TaggyScanConfig) (*ResourceMetadata, error) {
+func (s *VPCInspector) Fetch(ctx context.Context, arn string, config configuration.TaggyScanConfig) (*ResourceMetadata, error) {
 	// Parse VPC ID and region from ARN
 	vpcID, region, err := ParseVPCARN(arn)
 	if err != nil {
