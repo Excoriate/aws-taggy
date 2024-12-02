@@ -12,39 +12,46 @@ import (
 	"github.com/Excoriate/aws-taggy/pkg/o11y"
 )
 
-// FetchCmd represents the fetch command and its subcommands
-type FetchCmd struct {
-	Tags TagsCmd `cmd:"" help:"Fetch tags for a specific AWS resource"`
-	Info InfoCmd `cmd:"" help:"Fetch detailed information about a specific AWS resource"`
+// QueryCmd represents the query command and its subcommands
+type QueryCmd struct {
+	Tags TagsCmd `cmd:"" help:"Query tags for a specific AWS resource"`
+	Info InfoCmd `cmd:"" help:"Query detailed information about a specific AWS resource"`
 }
 
-// TagsCmd represents the fetch tags subcommand
+// TagsCmd represents the query tags subcommand
 type TagsCmd struct {
-	ARN       string `help:"ARN of the resource to fetch tags for" required:"true"`
+	ARN       string `help:"ARN of the resource to query tags for" required:"true"`
 	Service   string `help:"AWS service type (e.g., s3, ec2)" required:"true"`
 	Output    string `help:"Output format (table|json|yaml)" default:"table" enum:"table,json,yaml"`
 	Clipboard bool   `help:"Copy output to clipboard" default:"false"`
 }
 
-// InfoCmd represents the fetch info subcommand
+// InfoCmd represents the query info subcommand
 type InfoCmd struct {
-	ARN       string `help:"ARN of the resource to fetch information for" required:"true"`
+	ARN       string `help:"ARN of the resource to query information for" required:"true"`
 	Service   string `help:"AWS service type (e.g., s3, ec2)" required:"true"`
 	Output    string `help:"Output format (table|json|yaml)" default:"table" enum:"table,json,yaml"`
 	Clipboard bool   `help:"Copy output to clipboard" default:"false"`
 }
 
-// Run implements the tags fetch logic
+// Run is a no-op method to satisfy the Kong command interface
+func (q *QueryCmd) Run() error {
+	return nil
+}
+
+// Run implements the tags query logic
 func (t *TagsCmd) Run() error {
 	logger := o11y.DefaultLogger()
-	logger.Info(fmt.Sprintf("🔍 Fetching tags for resource: %s", t.ARN))
+	logger.Info(fmt.Sprintf("🔍 Querying tags for resource: %s", t.ARN))
+
+	regionOnARN := inspector.ExtractRegionFromARNOrDefault(t.ARN)
 
 	// Create minimal config for the specific service
 	config := configuration.TaggyScanConfig{
 		AWS: configuration.AWSConfig{
 			Regions: configuration.RegionsConfig{
 				Mode: "specific",
-				List: []string{extractRegionFromARN(t.ARN)},
+				List: []string{regionOnARN},
 			},
 		},
 		Resources: map[string]configuration.ResourceConfig{
@@ -115,17 +122,19 @@ func (t *TagsCmd) Run() error {
 	return tui.RenderTable(tableOpts, tableData)
 }
 
-// Run implements the info fetch logic
+// Run implements the info query logic
 func (i *InfoCmd) Run() error {
 	logger := o11y.DefaultLogger()
-	logger.Info(fmt.Sprintf("🔍 Fetching information for resource: %s", i.ARN))
+	logger.Info(fmt.Sprintf("🔍 Querying information for resource: %s", i.ARN))
+
+	regionOnARN := inspector.ExtractRegionFromARNOrDefault(i.ARN)
 
 	// Similar initialization as TagsCmd
 	config := configuration.TaggyScanConfig{
 		AWS: configuration.AWSConfig{
 			Regions: configuration.RegionsConfig{
 				Mode: "specific",
-				List: []string{extractRegionFromARN(i.ARN)},
+				List: []string{regionOnARN},
 			},
 		},
 		Resources: map[string]configuration.ResourceConfig{

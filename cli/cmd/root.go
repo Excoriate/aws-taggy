@@ -20,7 +20,7 @@ type RootCmd struct {
 	// Subcommands
 	Discover   DiscoverCmd   `cmd:"" help:"Discover AWS resources"`
 	Config     ConfigCmd     `cmd:"" help:"Configuration management commands"`
-	Fetch      FetchCmd      `cmd:"" help:"Fetch specific resource details"`
+	Query      QueryCmd      `cmd:"" help:"Query AWS resource details"`
 	Compliance ComplianceCmd `cmd:"" help:"AWS resource tag compliance commands"`
 }
 
