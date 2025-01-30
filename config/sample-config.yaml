@@ -1,0 +1,93 @@
+version: v1alpha1
+global:
+  enabled: true
+  batch_size: 20
+  tag_criteria:
+    minimum_required_tags: 2
+    required_tags:
+      - Environment
+      - Project
+    forbidden_tags: []
+    specific_tags: {}
+    compliance_level: standard
+    max_tags: 0
+resources:
+  ec2:
+    enabled: true
+    tag_criteria:
+      minimum_required_tags: 0
+      required_tags: []
+      forbidden_tags: []
+      specific_tags: {}
+      compliance_level: standard
+      max_tags: 0
+    excluded_resources: []
+  s3:
+    enabled: true
+    tag_criteria:
+      minimum_required_tags: 0
+      required_tags: []
+      forbidden_tags: []
+      specific_tags: {}
+      compliance_level: standard
+      max_tags: 0
+    excluded_resources: []
+  vpc:
+    enabled: true
+    tag_criteria:
+      minimum_required_tags: 0
+      required_tags: []
+      forbidden_tags: []
+      specific_tags: {}
+      compliance_level: standard
+      max_tags: 0
+    excluded_resources: []
+compliance_levels:
+  standard:
+    required_tags:
+      - Environment
+      - Project
+    specific_tags:
+      Environment: dev
+      Project: aws-taggy
+tag_validation:
+  allowed_values:
+    Environment:
+      - dev
+      - staging
+      - prod
+    Project:
+      - taggy
+      - aws-taggy
+  pattern_rules: {}
+  case_sensitivity: {}
+  case_rules:
+    Environment:
+      case: lowercase
+      message: Environment tag must be lowercase
+    Project:
+      case: lowercase
+      message: Project tag must be lowercase
+  prohibited_tags: []
+  key_format_rules: []
+  length_rules: {}
+  key_validation:
+    allowed_prefixes: []
+    allowed_suffixes: []
+    max_length: 0
+  value_validation:
+    allowed_characters: ""
+    disallowed_values: []
+notifications:
+  slack:
+    enabled: false
+    channels: {}
+  email:
+    enabled: false
+    recipients: []
+    frequency: ""
+  frequency: daily
+aws:
+  regions:
+    mode: all
+  batch_size: 20

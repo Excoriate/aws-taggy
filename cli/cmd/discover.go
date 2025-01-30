@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/Excoriate/aws-taggy/cli/internal/normaliser"
 	"github.com/Excoriate/aws-taggy/cli/internal/output"
 	"github.com/Excoriate/aws-taggy/cli/internal/tui"
 	"github.com/Excoriate/aws-taggy/pkg/configuration"
@@ -26,6 +27,9 @@ type DiscoverCmd struct {
 func (d *DiscoverCmd) Run() error {
 	// Initialize logger
 	logger := o11y.DefaultLogger()
+
+	// Normalize service name
+	d.Service = normaliser.NormalizeServiceName(d.Service)
 
 	// Validate service
 	if err := configuration.IsSupportedAWSResource(d.Service); err != nil {

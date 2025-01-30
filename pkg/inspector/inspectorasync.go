@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"time"
 )
 
 // AsyncResourceInspector handles asynchronous resource scanning
@@ -62,7 +63,12 @@ func (s *AsyncResourceInspector) startResourceDiscovery(
 			// Discover resources in this region
 			resources, err := discoverer(ctx, r)
 			if err != nil {
-				errorChan <- fmt.Errorf("failed to discover resources in region %s: %w", r, err)
+				select {
+				case errorChan <- fmt.Errorf("failed to discover resources in region %s: %w", r, err):
+				default:
+					// If channel is full, log the error
+					s.config.Logger.Error(fmt.Sprintf("Failed to send error for region %s: %v", r, err))
+				}
 				return
 			}
 
@@ -70,10 +76,17 @@ func (s *AsyncResourceInspector) startResourceDiscovery(
 				"region", r,
 				"count", len(resources))
 
+			// Add to processing WaitGroup before sending resources
+			processingWg.Add(len(resources))
+
 			// Send resources to processing channel
 			for _, resource := range resources {
-				resourceChan <- resource
-				processingWg.Add(1)
+				select {
+				case resourceChan <- resource:
+				case <-ctx.Done():
+					processingWg.Add(-1) // Decrement if we couldn't send
+					return
+				}
 			}
 		}(region)
 	}
@@ -109,7 +122,12 @@ func (s *AsyncResourceInspector) startResourceProcessing(
 						"has_tags", len(metadata.Tags) > 0,
 						"tag_count", len(metadata.Tags))
 
-					resultChan <- metadata
+					// Send result with non-blocking select
+					select {
+					case resultChan <- metadata:
+					case <-ctx.Done():
+						return
+					}
 				}()
 			}
 		}(i)
@@ -125,11 +143,21 @@ func (s *AsyncResourceInspector) manageChannelLifecycle(
 	processingWg *sync.WaitGroup,
 ) {
 	go func() {
-		discoveryWg.Wait()  // Wait for all discovery goroutines
-		close(resourceChan) // Close resource channel when discovery is done
-		processingWg.Wait() // Wait for all processing to complete
-		close(resultChan)   // Close result channel
-		close(errorChan)    // Close error channel
+		// Wait for all discovery goroutines to finish
+		discoveryWg.Wait()
+
+		// Wait a small duration to ensure all resources are sent
+		time.Sleep(100 * time.Millisecond)
+
+		// Close resource channel when discovery is done
+		close(resourceChan)
+
+		// Wait for all processing to complete
+		processingWg.Wait()
+
+		// Close result and error channels
+		close(resultChan)
+		close(errorChan)
 	}()
 }
 
