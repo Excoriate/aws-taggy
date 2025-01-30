@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"sync"
-	"time"
 )
 
 // AsyncResourceInspector handles asynchronous resource scanning
@@ -56,39 +55,49 @@ func (s *AsyncResourceInspector) startResourceDiscovery(
 	processingWg *sync.WaitGroup,
 ) {
 	for _, region := range regions {
-		discoveryWg.Add(1)
-		go func(r string) {
-			defer discoveryWg.Done()
+		select {
+		case <-ctx.Done():
+			s.config.Logger.Error("Context cancelled during resource discovery",
+				"error", ctx.Err())
+			return
+		default:
+			discoveryWg.Add(1)
+			go func(r string) {
+				defer discoveryWg.Done()
 
-			// Discover resources in this region
-			resources, err := discoverer(ctx, r)
-			if err != nil {
-				select {
-				case errorChan <- fmt.Errorf("failed to discover resources in region %s: %w", r, err):
-				default:
-					// If channel is full, log the error
-					s.config.Logger.Error(fmt.Sprintf("Failed to send error for region %s: %v", r, err))
-				}
-				return
-			}
-
-			s.config.Logger.Info(fmt.Sprintf("Discovered resources in region %s", r),
-				"region", r,
-				"count", len(resources))
-
-			// Add to processing WaitGroup before sending resources
-			processingWg.Add(len(resources))
-
-			// Send resources to processing channel
-			for _, resource := range resources {
-				select {
-				case resourceChan <- resource:
-				case <-ctx.Done():
-					processingWg.Add(-1) // Decrement if we couldn't send
+				resources, err := discoverer(ctx, r)
+				if err != nil {
+					s.config.Logger.Error("Failed to discover resources",
+						"region", r,
+						"error", err)
+					select {
+					case errorChan <- fmt.Errorf("failed to discover resources in region %s: %w", r, err):
+					case <-ctx.Done():
+						s.config.Logger.Error("Context cancelled while sending discovery error",
+							"region", r,
+							"error", err)
+					}
 					return
 				}
-			}
-		}(region)
+
+				s.config.Logger.Info(fmt.Sprintf("Discovered resources in region %s", r),
+					"region", r,
+					"count", len(resources))
+
+				processingWg.Add(len(resources))
+
+				for _, resource := range resources {
+					select {
+					case resourceChan <- resource:
+					case <-ctx.Done():
+						s.config.Logger.Error("Context cancelled while sending resource",
+							"region", r)
+						processingWg.Add(-1)
+						return
+					}
+				}
+			}(region)
+		}
 	}
 }
 
@@ -100,85 +109,173 @@ func (s *AsyncResourceInspector) startResourceProcessing(
 	processor ResourceProcessor,
 	processingWg *sync.WaitGroup,
 ) {
+	workerWg := &sync.WaitGroup{}
+
 	for i := 0; i < s.config.NumWorkers; i++ {
+		workerWg.Add(1)
 		go func(workerID int) {
-			for resource := range resourceChan {
-				func() {
-					defer processingWg.Done()
-
-					// Process the resource
-					metadata, err := processor(ctx, resource)
-					if err != nil {
-						s.config.Logger.Error("Failed to process resource",
-							"error", err)
+			defer workerWg.Done()
+			for {
+				select {
+				case resource, ok := <-resourceChan:
+					if !ok {
 						return
 					}
+					func() {
+						defer processingWg.Done()
+						metadata, err := processor(ctx, resource)
+						if err != nil {
+							s.config.Logger.Error("Failed to process resource",
+								"worker", workerID,
+								"error", err)
+							return
+						}
 
-					// Log successful processing
-					s.config.Logger.Info("Processed resource",
-						"type", metadata.Type,
-						"id", metadata.ID,
-						"region", metadata.Region,
-						"has_tags", len(metadata.Tags) > 0,
-						"tag_count", len(metadata.Tags))
+						s.config.Logger.Info("Processed resource",
+							"worker", workerID,
+							"type", metadata.Type,
+							"id", metadata.ID,
+							"region", metadata.Region,
+							"has_tags", len(metadata.Tags) > 0,
+							"tag_count", len(metadata.Tags))
 
-					// Send result with non-blocking select
-					select {
-					case resultChan <- metadata:
-					case <-ctx.Done():
-						return
-					}
-				}()
+						select {
+						case resultChan <- metadata:
+						case <-ctx.Done():
+							s.config.Logger.Error("Context cancelled while sending result",
+								"worker", workerID,
+								"resource_id", metadata.ID)
+						}
+					}()
+				case <-ctx.Done():
+					s.config.Logger.Error("Context cancelled for worker",
+						"worker", workerID,
+						"error", ctx.Err())
+					return
+				}
 			}
 		}(i)
 	}
+
+	// Wait for all workers to finish before closing result channel
+	go func() {
+		workerWg.Wait()
+		close(resultChan)
+	}()
 }
 
 // manageChannelLifecycle handles closing of channels and waiting for goroutines
 func (s *AsyncResourceInspector) manageChannelLifecycle(
+	ctx context.Context,
 	resourceChan chan interface{},
 	resultChan chan ResourceMetadata,
 	errorChan chan error,
 	discoveryWg *sync.WaitGroup,
 	processingWg *sync.WaitGroup,
 ) {
+	// Create a channel to coordinate closing
+	done := make(chan struct{})
+	closeOnce := sync.Once{}
+
+	// Close channels in the correct order
 	go func() {
-		// Wait for all discovery goroutines to finish
+		defer close(done)
+
+		// First wait for discovery to complete
 		discoveryWg.Wait()
+		s.config.Logger.Info("Resource discovery completed")
 
-		// Wait a small duration to ensure all resources are sent
-		time.Sleep(100 * time.Millisecond)
+		// Then close the resource channel
+		closeOnce.Do(func() {
+			close(resourceChan)
+			s.config.Logger.Info("Resource channel closed")
+		})
 
-		// Close resource channel when discovery is done
-		close(resourceChan)
-
-		// Wait for all processing to complete
+		// Wait for processing to complete
 		processingWg.Wait()
+		s.config.Logger.Info("Resource processing completed")
 
-		// Close result and error channels
-		close(resultChan)
+		// Finally close the error channel
 		close(errorChan)
+		s.config.Logger.Info("Error channel closed")
 	}()
+
+	// Wait for completion or context cancellation
+	select {
+	case <-done:
+		s.config.Logger.Info("Channel lifecycle management completed normally")
+		return
+	case <-ctx.Done():
+		s.config.Logger.Error("Context cancelled during channel lifecycle management",
+			"error", ctx.Err())
+		// Ensure channels are closed even on cancellation
+		closeOnce.Do(func() {
+			close(resourceChan)
+			s.config.Logger.Info("Resource channel closed on cancellation")
+		})
+		return
+	}
 }
 
 // collectScanResults aggregates processed resources and errors
 func (s *AsyncResourceInspector) collectScanResults(
+	ctx context.Context,
 	resultChan chan ResourceMetadata,
 	errorChan chan error,
 ) ([]ResourceMetadata, []error) {
 	var results []ResourceMetadata
 	var scanErrors []error
+	var mu sync.Mutex
+	var wg sync.WaitGroup
 
-	// Collect errors
-	for err := range errorChan {
-		scanErrors = append(scanErrors, err)
-	}
+	wg.Add(2)
 
-	// Collect processed resources
-	for metadata := range resultChan {
-		results = append(results, metadata)
-	}
+	// Collect results
+	go func() {
+		defer wg.Done()
+		for {
+			select {
+			case result, ok := <-resultChan:
+				if !ok {
+					return
+				}
+				mu.Lock()
+				results = append(results, result)
+				mu.Unlock()
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
 
+	// Collect errors with improved error handling
+	go func() {
+		defer wg.Done()
+		for {
+			select {
+			case err, ok := <-errorChan:
+				if !ok {
+					return
+				}
+				mu.Lock()
+				if err != nil {
+					s.config.Logger.Error("Error during resource scanning",
+						"error", err)
+					scanErrors = append(scanErrors, err)
+				}
+				mu.Unlock()
+			case <-ctx.Done():
+				if ctx.Err() != nil {
+					mu.Lock()
+					scanErrors = append(scanErrors, ctx.Err())
+					mu.Unlock()
+				}
+				return
+			}
+		}
+	}()
+
+	wg.Wait()
 	return results, scanErrors
 }
 
@@ -210,29 +307,32 @@ func (s *AsyncResourceInspector) InspectResourcesAsync(
 	discoverer ResourceDiscoverer,
 	processor ResourceProcessor,
 ) ([]ResourceMetadata, error) {
-	// Create channels for async processing
-	resourceChan := make(chan interface{}, s.config.BatchSize)
-	resultChan := make(chan ResourceMetadata, s.config.BatchSize)
-	errorChan := make(chan error, len(regions))
+	// Create buffered channels with larger capacity
+	resourceChan := make(chan interface{}, s.config.BatchSize*len(regions))
+	resultChan := make(chan ResourceMetadata, s.config.BatchSize*len(regions))
+	errorChan := make(chan error, len(regions)*2)
 
-	// WaitGroups for discovery and processing
 	var discoveryWg, processingWg sync.WaitGroup
 
-	// Start resource discovery goroutines
+	// Start resource discovery
 	s.startResourceDiscovery(ctx, regions, discoverer, resourceChan, errorChan, &discoveryWg, &processingWg)
 
-	// Start resource processing workers
+	// Start resource processing
 	s.startResourceProcessing(ctx, resourceChan, resultChan, processor, &processingWg)
 
 	// Manage channel lifecycle
-	s.manageChannelLifecycle(resourceChan, resultChan, errorChan, &discoveryWg, &processingWg)
+	s.manageChannelLifecycle(ctx, resourceChan, resultChan, errorChan, &discoveryWg, &processingWg)
 
 	// Collect results and errors
-	results, scanErrors := s.collectScanResults(resultChan, errorChan)
+	results, scanErrors := s.collectScanResults(ctx, resultChan, errorChan)
 
-	// Check for any errors
 	if len(scanErrors) > 0 {
-		return results, fmt.Errorf("scanning encountered %d errors", len(scanErrors))
+		// Create a detailed error message
+		errMsg := fmt.Sprintf("scanning encountered %d errors:\n", len(scanErrors))
+		for i, err := range scanErrors {
+			errMsg += fmt.Sprintf("  %d. %v\n", i+1, err)
+		}
+		return results, fmt.Errorf(errMsg)
 	}
 
 	return results, nil

@@ -4,7 +4,24 @@ version: "1.0"
 
 aws:
   regions:
-    mode: all
+    mode: specific
+    list:
+      - us-east-1
+      - us-east-2
+      - us-west-1
+      - us-west-2
+      - eu-west-1
+      - eu-west-2
+      - eu-west-3
+      - eu-central-1
+      - eu-north-1
+      - ap-south-1
+      - ap-northeast-1
+      - ap-northeast-2
+      - ap-southeast-1
+      - ap-southeast-2
+      - sa-east-1
+      - ca-central-1
   batch_size: 50  # Increased batch size for comprehensive scanning
 
 global:
@@ -38,7 +55,7 @@ resources:
         EncryptionRequired: "true"
         ManagedBy: "tag-inspector"
       compliance_level: high
-    
+
     # Exclude specific bucket patterns from untagged scanning
     excluded_resources:
       - pattern: terraform-state-*
