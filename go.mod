@@ -1,6 +1,6 @@
 module github.com/Excoriate/aws-taggy
 
-go 1.23.1
+go 1.23.3
 
 toolchain go1.23.3
 

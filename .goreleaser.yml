@@ -9,7 +9,7 @@ before:
     - go mod download
 
 builds:
-  - id: aws-taggy-cli
+  - id: aws-taggy
     dir: cli
     env:
       - CGO_ENABLED=0
@@ -20,8 +20,9 @@ builds:
     goarch:
       - amd64
       - arm64
+      - arm
     ldflags:
-      - -s -w 
+      - -s -w
       - -X github.com/Excoriate/aws-taggy/cli/cmd.version={{.Version}}
       - -X github.com/Excoriate/aws-taggy/cli/cmd.commit={{.Commit}}
       - -X github.com/Excoriate/aws-taggy/cli/cmd.date={{.Date}}
@@ -37,7 +38,7 @@ nfpms:
     maintainer: alex_torres@outlook.com
     homepage: https://github.com/Excoriate/aws-taggy
     description: >-
-      AWS Taggy is a CLI tool for managing and querying AWS resources.
+      AWS Taggy is a CLI tool that ensures tag compliance for AWS resources, enhancing efficiency and supporting your FinOps goals.
     license: MIT
     formats:
       - deb
@@ -55,18 +56,19 @@ sboms:
   - artifacts: archive
 
 brews:
-  - tap:
+  - repository:
       owner: Excoriate
       name: homebrew-tap
       branch: main
+      token: ${{ secrets.GH_HOMEBREW_TOKEN }}
     url_template: https://github.com/Excoriate/aws-taggy/releases/download/{{ .Tag }}/{{ .ArtifactName }}
     commit_author:
-      name: Excoriate
+      name: Alex Torres
       email: alex_torres@outlook.com
-    folder: Formula
+    directory: Formula
     homepage: https://github.com/Excoriate/aws-taggy
     description: >-
-      AWS Taggy is a CLI tool for managing and querying AWS resources.
+      AWS Taggy is a CLI tool that ensures tag compliance for AWS resources, enhancing efficiency and supporting your FinOps goals.
     license: MIT
 
 archives:
@@ -84,10 +86,12 @@ snapshot:
   name_template: '{{ .Tag }}-next'
 
 changelog:
-  skip: true
+  disable: true
   sort: asc
   filters:
     exclude:
       - '^docs:'
       - '^test:'
       - '^*.md:'
+      - '^*.txt:'
+      - '^*.toml:'

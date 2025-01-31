@@ -63,3 +63,62 @@ run-hooks:
 run-example dir mode:
     @echo "🚀 Running example in: {{dir}} 🔍"
     @./tests/examples/{{dir}}/run.sh {{mode}}
+
+# Docker-related commands 🐳
+# Build Docker image for Apple Silicon (arm64)
+docker-build-arm:
+    @docker buildx build \
+        --platform linux/arm64 \
+        -t aws-taggy:arm64 \
+        --build-arg VERSION=$(git describe --abbrev=0 --tags 2>/dev/null || echo devel) \
+        --load \
+        .
+
+# Build Docker image for Linux (amd64)
+docker-build-linux:
+    @docker buildx build \
+        --platform linux/amd64 \
+        -t aws-taggy:amd64 \
+        --build-arg VERSION=$(git describe --abbrev=0 --tags 2>/dev/null || echo devel) \
+        --load \
+        .
+
+# Build multi-platform Docker image
+docker-build-multi:
+    @docker buildx build \
+        --platform linux/amd64,linux/arm64 \
+        -t aws-taggy:latest \
+        --build-arg VERSION=$(git describe --abbrev=0 --tags 2>/dev/null || echo devel) \
+        --push \
+        .
+
+# Run Docker container for Apple Silicon
+rundocker-arm *args:
+    @just docker-build-arm
+    @docker run --rm \
+        -v "$(HOME)/.aws:/root/.aws" \
+        -e AWS_PROFILE \
+        -e AWS_DEFAULT_REGION \
+        -e AWS_ACCESS_KEY_ID \
+        -e AWS_SECRET_ACCESS_KEY \
+        -e AWS_SESSION_TOKEN \
+        aws-taggy:arm64 {{args}}
+
+# Run Docker container for Linux
+rundocker-linux *args:
+    @just docker-build-linux
+    @docker run --rm \
+        -v "$(HOME)/.aws:/root/.aws" \
+        -e AWS_PROFILE \
+        -e AWS_DEFAULT_REGION \
+        -e AWS_ACCESS_KEY_ID \
+        -e AWS_SECRET_ACCESS_KEY \
+        -e AWS_SESSION_TOKEN \
+        aws-taggy:amd64 {{args}}
+
+# Clean up Docker resources
+docker-clean:
+    @docker rmi aws-taggy:arm64 2>/dev/null || true
+    @docker rmi aws-taggy:amd64 2>/dev/null || true
+    @docker rmi aws-taggy:latest 2>/dev/null || true
+    @docker system prune -f
