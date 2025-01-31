@@ -11,4 +11,5 @@ const (
 	ResourceTypeECR            = "ecr"
 	ResourceTypeCloudfront     = "cloudfront"
 	ResourceTypeRoute53        = "route53"
+	ResourceTypeSNS            = "sns"
 )

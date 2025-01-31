@@ -124,6 +124,10 @@ func New(resourceType string, cfg configuration.TaggyScanConfig) (Inspector, err
 		return NewCloudWatchLogsInspector(regions)
 	case constants.ResourceTypeRoute53:
 		return NewRoute53Inspector(regions)
+	case constants.ResourceTypeSNS:
+		return NewSNSInspector(regions)
+	case constants.ResourceTypeRDS:
+		return NewRDSInspector(regions)
 	default:
 		return nil, fmt.Errorf("unsupported resource type: %s", resourceType)
 	}

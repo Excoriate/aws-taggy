@@ -13,7 +13,8 @@ var SupportedAWSResources = map[string]bool{
 	constants.ResourceTypeVPC:            true,
 	constants.ResourceTypeCloudWatchLogs: true,
 	constants.ResourceTypeRoute53:        true,
-	constants.ResourceTypeRDS:            false,
+	constants.ResourceTypeSNS:            true,
+	constants.ResourceTypeRDS:            true,
 	constants.ResourceTypeLambda:         false,
 	constants.ResourceTypeEKS:            false,
 	constants.ResourceTypeECR:            false,
@@ -56,7 +57,6 @@ func NormalizeResourceType(resource string) string {
 	normalized := strings.ToLower(strings.TrimSpace(resource))
 
 	// Add any specific normalizations here if needed
-	// For example, if we want to support "virtual-private-cloud" as an alias for "vpc"
 	switch normalized {
 	case "virtual-private-cloud", "vpc":
 		return constants.ResourceTypeVPC
@@ -64,6 +64,10 @@ func NormalizeResourceType(resource string) string {
 		return constants.ResourceTypeEC2
 	case "simple-storage-service", "s3":
 		return constants.ResourceTypeS3
+	case "simple-notification-service", "sns":
+		return constants.ResourceTypeSNS
+	case "relational-database-service", "rds":
+		return constants.ResourceTypeRDS
 	default:
 		return normalized
 	}
