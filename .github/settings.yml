@@ -12,18 +12,75 @@ repository:
   has_wiki: false
 
 labels:
+  # AWS-specific labels
   - name: aws/resource-type
     color: '#FF9900'
     description: Specific AWS resource type tag issue
+
   - name: compliance
     color: '#2C8EBB'
     description: Tag compliance and validation
+
   - name: multi-account
     color: '#7B42BC'
     description: Multi-account AWS tag management
+
   - name: performance
     color: '#FFC300'
     description: Performance optimization for large resource sets
+
+  # Semantic Type Labels
+  - name: type/bug
+    color: '#D73A4A'
+    description: Confirmed bug or unexpected behavior
+
+  - name: type/enhancement
+    color: '#84B6EB'
+    description: New feature or improvement
+
+  - name: type/documentation
+    color: '#0075CA'
+    description: Documentation updates or improvements
+
+  # Priority Labels
+  - name: priority/critical
+    color: '#B60205'
+    description: Urgent issues requiring immediate attention
+
+  - name: priority/high
+    color: '#D93F0B'
+    description: Important issues with significant impact
+
+  - name: priority/low
+    color: '#0E8A16'
+    description: Minor improvements or non-critical changes
+
+  # Effort and Complexity Labels
+  - name: effort/small
+    color: '#C2E0C6'
+    description: Quick fix or minor change
+
+  - name: effort/medium
+    color: '#FBCA04'
+    description: Moderate complexity, requires some effort
+
+  - name: effort/large
+    color: '#5319E7'
+    description: Significant changes, complex implementation
+
+  # Maintenance Labels
+  - name: maintenance
+    color: '#6A737D'
+    description: Routine updates, refactoring, or technical debt
+
+  # Community Labels
+  - name: good-first-issue
+    color: '#7057FF'
+    description: Suitable for first-time contributors
+
+  - name: help-wanted
+    color: '#008672'
+    description: Community contributions welcome
 
 branches:
   - name: main
@@ -34,7 +91,7 @@ branches:
         require_code_owner_reviews: true
       required_status_checks:
         strict: true
-        contexts: 
+        contexts:
           - "lint"
           - "test"
           - "codecov"
