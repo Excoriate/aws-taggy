@@ -33,7 +33,7 @@ func (d *DiscoverCmd) Run() error {
 
 	// Validate service
 	if err := configuration.IsSupportedAWSResource(d.Service); err != nil {
-		return fmt.Errorf("unsupported service: %s. %w", d.Service, err)
+		return fmt.Errorf("service %s is not supported: %w", d.Service, err)
 	}
 
 	// Create a custom configuration for the specific service and region
@@ -55,7 +55,7 @@ func (d *DiscoverCmd) Run() error {
 	// Create Taggy client with empty config since we'll use our custom config
 	client, err := taggy.NewWithConfig(&customConfig)
 	if err != nil {
-		return fmt.Errorf("failed to create Taggy client: %w", err)
+		return fmt.Errorf("failed to create Taggy client with custom configuration for service %s in region %s: %w", d.Service, d.Region, err)
 	}
 
 	// Perform resource discovery
@@ -71,12 +71,12 @@ func (d *DiscoverCmd) discoverResources(client *taggy.TaggyClient, logger *o11y.
 	// Create a inspector manager
 	inspectorManager, err := inspector.NewInspectorManagerFromConfig(*client.Config())
 	if err != nil {
-		return fmt.Errorf("failed to create inspector manager: %w", err)
+		return fmt.Errorf("failed to create inspector manager for service %s in region %s: %w", d.Service, d.Region, err)
 	}
 
 	// Perform the scan
 	if err := inspectorManager.Inspect(ctx); err != nil {
-		return fmt.Errorf("discovery encountered errors: %v", err)
+		return fmt.Errorf("resource discovery failed for service %s in region %s: %w", d.Service, d.Region, err)
 	}
 
 	// Process discovery results
@@ -186,7 +186,7 @@ func (d *DiscoverCmd) discoverResources(client *taggy.TaggyClient, logger *o11y.
 		// If clipboard flag is set, copy to clipboard
 		if d.Clipboard {
 			if err := output.WriteToClipboard(result); err != nil {
-				return fmt.Errorf("failed to copy to clipboard: %w", err)
+				return fmt.Errorf("failed to copy resource discovery results to clipboard for service %s in region %s: %w", d.Service, d.Region, err)
 			}
 			logger.Info("✅ Resource discovery results copied to clipboard!")
 			return nil

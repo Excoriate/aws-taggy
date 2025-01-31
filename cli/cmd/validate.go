@@ -29,13 +29,13 @@ func (v *ValidateCmd) Run() error {
 	// Load configuration
 	cfg, err := loader.LoadConfig(v.Config)
 	if err != nil {
-		return fmt.Errorf("failed to load configuration: %w", err)
+		return fmt.Errorf("failed to load configuration file %s: %w", v.Config, err)
 	}
 
 	// Initialize config validator
 	validator, err := configuration.NewContentValidator(cfg)
 	if err != nil {
-		return fmt.Errorf("failed to initialize config validator: %w", err)
+		return fmt.Errorf("failed to initialize configuration validator for file %s: %w", v.Config, err)
 	}
 
 	// Prepare validation result
@@ -91,7 +91,7 @@ func (v *ValidateCmd) Run() error {
 	// Handle clipboard if requested
 	if v.Clipboard {
 		if err := output.WriteToClipboard(result); err != nil {
-			return fmt.Errorf("failed to copy to clipboard: %w", err)
+			return fmt.Errorf("failed to copy validation result to clipboard for file %s: %w", v.Config, err)
 		}
 		fmt.Println("✅ Validation result copied to clipboard!")
 		return nil
@@ -101,7 +101,10 @@ func (v *ValidateCmd) Run() error {
 	formatter := output.NewFormatter(v.Output)
 
 	if formatter.IsStructured() {
-		return formatter.Output(result)
+		if err := formatter.Output(result); err != nil {
+			return fmt.Errorf("failed to output structured validation result for file %s: %w", v.Config, err)
+		}
+		return nil
 	}
 
 	// If table view is requested
@@ -146,9 +149,16 @@ func (v *ValidateCmd) Run() error {
 			AutoWidth: true,
 		}
 
-		return tui.RenderTable(tableOpts, tableData)
+		if err := tui.RenderTable(tableOpts, tableData); err != nil {
+			return fmt.Errorf("failed to render validation results table for file %s: %w", v.Config, err)
+		}
+		return nil
 	}
 
 	// Default console output
-	return output.RenderDefaultOutput(&result)
+	if err := output.RenderDefaultOutput(&result); err != nil {
+		return fmt.Errorf("failed to render default validation output for file %s: %w", v.Config, err)
+	}
+
+	return nil
 }

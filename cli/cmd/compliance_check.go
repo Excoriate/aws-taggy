@@ -44,18 +44,18 @@ func (c *CheckCmd) Run() error {
 	// Load configuration
 	cfg, err := loader.LoadConfig(c.Config)
 	if err != nil {
-		return fmt.Errorf("failed to load configuration: %w", err)
+		return fmt.Errorf("failed to load configuration from file %s: %w. Please check the configuration file path and its contents", c.Config, err)
 	}
 
 	// Initialize config validator
 	configValidator, err := configuration.NewContentValidator(cfg)
 	if err != nil {
-		return fmt.Errorf("failed to initialize config validator: %w", err)
+		return fmt.Errorf("failed to initialize configuration validator for file %s: %w. Ensure the configuration is valid and follows the expected schema", c.Config, err)
 	}
 
 	// Perform configuration validation
 	if err := configValidator.ValidateContent(); err != nil {
-		return fmt.Errorf("configuration validation failed: %w", err)
+		return fmt.Errorf("configuration validation failed for file %s: %w. Review the configuration and ensure all required fields are correctly specified", c.Config, err)
 	}
 
 	// Print configuration validation success
@@ -87,20 +87,20 @@ func (c *CheckCmd) Run() error {
 	// Initialize taggy client
 	client, err := taggy.New(c.Config)
 	if err != nil {
-		return fmt.Errorf("failed to initialize taggy client: %w", err)
+		return fmt.Errorf("failed to initialize taggy client with configuration %s: %w. Check the configuration and ensure all required parameters are set", c.Config, err)
 	}
 
 	// Initialize scanner manager
 	inspectorMgr, err := inspector.NewInspectorManagerFromConfig(*client.Config())
 	if err != nil {
-		return fmt.Errorf("failed to create scanner manager: %w", err)
+		return fmt.Errorf("failed to create scanner manager from configuration: %w. Verify the AWS configuration and region settings", err)
 	}
 
 	// Scan resources
 	logger.Info("🔍 Scanning AWS resources...")
 	ctx := context.Background()
 	if err := inspectorMgr.Inspect(ctx); err != nil {
-		return fmt.Errorf("failed to scan resources: %w", err)
+		return fmt.Errorf("failed to scan AWS resources: %w. Check AWS credentials, permissions, and network connectivity", err)
 	}
 
 	// Get scan results

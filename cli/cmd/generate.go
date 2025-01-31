@@ -101,11 +101,14 @@ func (g *GenerateCmd) Run() error {
 	// Handle output based on the selected method
 	switch g.Output {
 	case "clipboard":
-		return output.WriteToClipboard(sampleConfig)
+		if err := output.WriteToClipboard(sampleConfig); err != nil {
+			return fmt.Errorf("failed to copy configuration to clipboard: %w", err)
+		}
+		return nil
 	case "file":
 		return generateConfigFile(g, sampleConfig)
 	default:
-		return fmt.Errorf("unsupported output format: %s", g.Output)
+		return fmt.Errorf("unsupported output format: %s for configuration generation", g.Output)
 	}
 }
 
@@ -113,7 +116,7 @@ func generateConfigFile(g *GenerateCmd, config configuration.TaggyScanConfig) er
 	// Resolve absolute path for the output directory
 	absDir, err := filepath.Abs(g.Directory)
 	if err != nil {
-		return fmt.Errorf("failed to resolve absolute path: %w", err)
+		return fmt.Errorf("failed to resolve absolute path for directory %s: %w", g.Directory, err)
 	}
 
 	// Create the full file path
@@ -121,13 +124,13 @@ func generateConfigFile(g *GenerateCmd, config configuration.TaggyScanConfig) er
 
 	// Check if file exists and handle overwrite
 	if _, err := os.Stat(filePath); err == nil && !g.Overwrite {
-		return fmt.Errorf("file %s already exists. Use --overwrite to replace", filePath)
+		return fmt.Errorf("configuration file %s already exists. Use --overwrite to replace", filePath)
 	}
 
 	// Create the file
 	file, err := os.Create(filePath)
 	if err != nil {
-		return fmt.Errorf("failed to create file: %w", err)
+		return fmt.Errorf("failed to create configuration file at %s: %w", filePath, err)
 	}
 	defer file.Close()
 
@@ -137,7 +140,7 @@ func generateConfigFile(g *GenerateCmd, config configuration.TaggyScanConfig) er
 
 	// Write configuration with comments
 	if err := encoder.Encode(config); err != nil {
-		return fmt.Errorf("failed to encode configuration: %w", err)
+		return fmt.Errorf("failed to encode configuration to file %s: %w", filePath, err)
 	}
 
 	fmt.Printf("✅ Configuration file generated successfully at: %s\n", filePath)

@@ -64,14 +64,14 @@ func (t *TagsCmd) Run() error {
 	// Create inspector for the specific service
 	inspectorClient, err := inspector.New(t.Service, config)
 	if err != nil {
-		return fmt.Errorf("failed to create inspector: %w", err)
+		return fmt.Errorf("failed to create inspector for service %s: %w", t.Service, err)
 	}
 
 	// Fetch resource details
 	ctx := context.Background()
 	resource, err := inspectorClient.Fetch(ctx, t.ARN, config)
 	if err != nil {
-		return fmt.Errorf("failed to fetch resource: %w", err)
+		return fmt.Errorf("failed to fetch resource details for ARN %s in service %s: %w", t.ARN, t.Service, err)
 	}
 
 	// Create output formatter
@@ -93,7 +93,7 @@ func (t *TagsCmd) Run() error {
 		// If clipboard flag is set, copy to clipboard
 		if t.Clipboard {
 			if err := output.WriteToClipboard(result); err != nil {
-				return fmt.Errorf("failed to copy to clipboard: %w", err)
+				return fmt.Errorf("failed to copy resource tags to clipboard for ARN %s: %w", t.ARN, err)
 			}
 			fmt.Println("✅ Resource tags copied to clipboard!")
 			return nil
@@ -119,7 +119,11 @@ func (t *TagsCmd) Run() error {
 		AutoWidth:       true,
 	}
 
-	return tui.RenderTable(tableOpts, tableData)
+	if err := tui.RenderTable(tableOpts, tableData); err != nil {
+		return fmt.Errorf("failed to render tags table for ARN %s: %w", t.ARN, err)
+	}
+
+	return nil
 }
 
 // Run implements the info query logic
@@ -146,13 +150,13 @@ func (i *InfoCmd) Run() error {
 
 	inspectorClient, err := inspector.New(i.Service, config)
 	if err != nil {
-		return fmt.Errorf("failed to create inspector: %w", err)
+		return fmt.Errorf("failed to create inspector for service %s: %w", i.Service, err)
 	}
 
 	ctx := context.Background()
 	resource, err := inspectorClient.Fetch(ctx, i.ARN, config)
 	if err != nil {
-		return fmt.Errorf("failed to fetch resource: %w", err)
+		return fmt.Errorf("failed to fetch resource details for ARN %s in service %s: %w", i.ARN, i.Service, err)
 	}
 
 	// Create output formatter
@@ -162,7 +166,7 @@ func (i *InfoCmd) Run() error {
 		// If clipboard flag is set, copy to clipboard
 		if i.Clipboard {
 			if err := output.WriteToClipboard(resource); err != nil {
-				return fmt.Errorf("failed to copy to clipboard: %w", err)
+				return fmt.Errorf("failed to copy resource information to clipboard for ARN %s: %w", i.ARN, err)
 			}
 			fmt.Println("✅ Resource information copied to clipboard!")
 			return nil
@@ -197,7 +201,11 @@ func (i *InfoCmd) Run() error {
 		AutoWidth:       true,
 	}
 
-	return tui.RenderTable(tableOpts, tableData)
+	if err := tui.RenderTable(tableOpts, tableData); err != nil {
+		return fmt.Errorf("failed to render resource details table for ARN %s: %w", i.ARN, err)
+	}
+
+	return nil
 }
 
 // Helper functions
