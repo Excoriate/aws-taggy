@@ -21,6 +21,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
       - name: ⚙️ Setup Go
         uses: actions/setup-go@v5
         with:
@@ -31,6 +33,7 @@ jobs:
         with:
           version: ${{ env.GOLANGCI_LINT_VERSION }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
+          args: --config .golangci.yml
 
   test:
     name: 🧪 Unit Tests

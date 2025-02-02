@@ -20,3 +20,11 @@ go.sum text diff=golang
 .gitignore export-ignore
 .golangci.yml export-ignore
 .pre-commit-config.yaml export-ignore
+
+# Nix and Flakes files
+flake.nix text diff=nix
+flake.lock text diff=json
+*.nix text diff=nix
+
+# Direnv
+.envrc text diff=shell

@@ -30,3 +30,18 @@ indent_size = 2
 [{Makefile,Justfile}]
 indent_style = tab
 indent_size = 4
+
+# Nix files
+[*.nix]
+indent_style = space
+indent_size = 2
+
+# Direnv files
+[.envrc]
+indent_style = space
+indent_size = 2
+
+# Flake lock files (JSON)
+[flake.lock]
+indent_style = space
+indent_size = 2

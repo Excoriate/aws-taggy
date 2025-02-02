@@ -54,3 +54,18 @@ temp/
 .cursorrules
 .aider*
 AI*
+
+# Nix and Direnv specific ignores
+.direnv/
+.env
+.envrc
+.pre-commit-config.yaml
+
+# Nix build and cache
+result
+result-*
+*.drv
+.cache/
+
+# Flakes
+flake.lock
