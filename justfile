@@ -145,3 +145,27 @@ ci-test:
 # Comprehensive CI Check (Lint + Test) 🏁
 ci-check: ci-lint ci-test
     @echo "✅ All CI checks passed successfully!"
+
+# Nix Development Shell 🌿
+# Commands for managing Nix development environment
+
+# Start Nix development shell 🚀
+nix-shell:
+    @echo "🌿 Starting Nix Development Shell for AWS Taggy 🏷️"
+    @nix develop . --extra-experimental-features nix-command --extra-experimental-features flakes
+
+# Update Nix flake dependencies 🔄
+nix-update:
+    @echo "🔄 Updating Nix Flake Dependencies"
+    @nix flake update
+
+# Build project using Nix 🛠️
+nix-build:
+    @echo "🛠️ Building AWS Taggy with Nix"
+    @nix build
+
+# Clean Nix build artifacts 🧹
+nix-clean:
+    @echo "🧹 Cleaning Nix Build Artifacts"
+    @nix clean
+    @rm -rf result

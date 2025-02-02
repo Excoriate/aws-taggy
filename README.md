@@ -46,3 +46,44 @@ brew install aws-taggy
 
 - [ ] Multi-cloud support
 - [ ] Add support for AWS resources: SQS, Redshift, SES, SSM, EKS, ECS.
+
+## Nix Development Environment 🌿
+
+### Prerequisites
+
+- [Nix](https://nixos.org/download.html)
+- [direnv](https://direnv.net/) (optional but recommended)
+- [Just](https://github.com/casey/just)
+
+### Getting Started
+
+1. **Automatic Environment Setup (Recommended)**:
+
+   ```bash
+   # If using direnv
+   direnv allow
+   ```
+
+2. **Manual Nix Shell**:
+   ```bash
+   # Start the development shell
+   just nix-shell
+   ```
+
+### Available Commands
+
+- `just nix-shell`: Start the Nix development shell
+- `just nix-update`: Update Nix flake dependencies
+- `just nix-build`: Build the project using Nix
+- `just nix-clean`: Clean Nix build artifacts
+
+### Features
+
+- Reproducible development environment
+- Consistent toolchain across different systems
+- Easy dependency management
+- Automatic environment setup with direnv
+
+### Customization
+
+Modify `flake.nix` to add or remove development tools as needed.
