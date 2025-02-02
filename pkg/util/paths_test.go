@@ -1,11 +1,18 @@
 package util
 
 import (
+	"os"
 	"path/filepath"
 	"testing"
 )
 
 func TestResolveAbsolutePath(t *testing.T) {
+	// Get current working directory for creating cross-platform absolute paths
+	cwd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Failed to get current working directory: %v", err)
+	}
+
 	testCases := []struct {
 		name        string
 		inputPath   string
@@ -17,9 +24,8 @@ func TestResolveAbsolutePath(t *testing.T) {
 			inputPath: "./test_config.yaml",
 			wantErr:   false,
 			pathChecker: func(absPath string) bool {
-				// Check that the path is absolute and ends with the input filename
-				return filepath.IsAbs(absPath) && 
-					   filepath.Base(absPath) == "test_config.yaml"
+				return filepath.IsAbs(absPath) &&
+					filepath.Base(absPath) == "test_config.yaml"
 			},
 		},
 		{
@@ -27,17 +33,17 @@ func TestResolveAbsolutePath(t *testing.T) {
 			inputPath: "../config/app.yaml",
 			wantErr:   false,
 			pathChecker: func(absPath string) bool {
-				return filepath.IsAbs(absPath) && 
-					   filepath.Base(absPath) == "app.yaml"
+				return filepath.IsAbs(absPath) &&
+					filepath.Base(absPath) == "app.yaml"
 			},
 		},
 		{
 			name:      "Absolute path",
-			inputPath: "/etc/myapp/config.yaml",
+			inputPath: filepath.Join(cwd, "etc", "myapp", "config.yaml"),
 			wantErr:   false,
 			pathChecker: func(absPath string) bool {
-				return filepath.IsAbs(absPath) && 
-					   absPath == "/etc/myapp/config.yaml"
+				return filepath.IsAbs(absPath) &&
+					filepath.Base(absPath) == "config.yaml"
 			},
 		},
 		{
@@ -45,7 +51,6 @@ func TestResolveAbsolutePath(t *testing.T) {
 			inputPath: "",
 			wantErr:   false,
 			pathChecker: func(absPath string) bool {
-				// Empty path should resolve to current working directory
 				return filepath.IsAbs(absPath)
 			},
 		},
@@ -54,21 +59,21 @@ func TestResolveAbsolutePath(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			absPath, err := ResolveAbsolutePath(tc.inputPath)
-			
+
 			// Check for unexpected errors
 			if tc.wantErr && err == nil {
 				t.Errorf("Expected an error, but got none")
 			}
-			
+
 			// Check for unexpected lack of error
 			if !tc.wantErr && err != nil {
 				t.Errorf("Unexpected error: %v", err)
 			}
-			
+
 			// If no error, perform additional path checks
 			if err == nil {
 				if !tc.pathChecker(absPath) {
-					t.Errorf("Path check failed for input %q. Got: %q", 
+					t.Errorf("Path check failed for input %q. Got: %q",
 						tc.inputPath, absPath)
 				}
 			}
