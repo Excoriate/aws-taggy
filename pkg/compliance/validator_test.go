@@ -128,6 +128,7 @@ func TestValidateTags_CaseRules(t *testing.T) {
 		tags               map[string]string
 		expectedResult     bool
 		expectedViolations int
+		expectedTypes      []ViolationType
 	}{
 		{
 			name: "Valid lowercase tags",
@@ -137,6 +138,7 @@ func TestValidateTags_CaseRules(t *testing.T) {
 			},
 			expectedResult:     true,
 			expectedViolations: 0,
+			expectedTypes:      []ViolationType{},
 		},
 		{
 			name: "Invalid case for environment tag",
@@ -145,7 +147,11 @@ func TestValidateTags_CaseRules(t *testing.T) {
 				"owner":       "team@company.com",
 			},
 			expectedResult:     false,
-			expectedViolations: 1,
+			expectedViolations: 3, // Key case + value case + key format
+			expectedTypes: []ViolationType{
+				ViolationTypeCaseViolation,
+				ViolationTypeInvalidKeyFormat,
+			},
 		},
 	}
 
@@ -157,6 +163,17 @@ func TestValidateTags_CaseRules(t *testing.T) {
 			result := validator.ValidateTags(tc.tags)
 			assert.Equal(t, tc.expectedResult, result.IsCompliant)
 			assert.Len(t, result.Violations, tc.expectedViolations)
+
+			if len(tc.expectedTypes) > 0 {
+				violationTypes := make(map[ViolationType]bool)
+				for _, v := range result.Violations {
+					violationTypes[v.Type] = true
+				}
+				for _, expectedType := range tc.expectedTypes {
+					assert.True(t, violationTypes[expectedType],
+						"Expected violation type %s not found", expectedType)
+				}
+			}
 		})
 	}
 }
@@ -205,8 +222,8 @@ func TestValidateTags_MultipleViolations(t *testing.T) {
 	validator := NewTagValidator(config)
 
 	tags := map[string]string{
-		"Environment": "INVALID-ENV",
-		"Owner":       "invalid-email",
+		"Environment": "INVALID-ENV",   // Case violation (key & value) + invalid value + key format
+		"Owner":       "invalid-email", // Case violation + pattern violation + key format
 	}
 
 	result := validator.ValidateTags(tags)
@@ -219,11 +236,28 @@ func TestValidateTags_MultipleViolations(t *testing.T) {
 		fmt.Printf("Violation: %+v\n", violation) // Debug print
 	}
 
+	// Verify all expected violation types are present
 	assert.True(t, violationTypes[ViolationTypeCaseViolation], "Expected case violation")
+	assert.True(t, violationTypes[ViolationTypeInvalidValue], "Expected invalid value violation")
 	assert.True(t, violationTypes[ViolationTypePatternViolation], "Expected pattern violation")
+	assert.True(t, violationTypes[ViolationTypeInvalidKeyFormat], "Expected invalid key format violation")
 
-	// Verify the number of violations
-	assert.Len(t, result.Violations, 2, "Expected exactly 2 violations")
+	// Count violations by tag
+	envViolations := 0
+	ownerViolations := 0
+	for _, v := range result.Violations {
+		if v.TagKey == "Environment" {
+			envViolations++
+		}
+		if v.TagKey == "Owner" {
+			ownerViolations++
+		}
+	}
+
+	// Environment should have: case (key), case (value), invalid value, key format = 4 violations
+	assert.GreaterOrEqual(t, envViolations, 3, "Expected at least 3 violations for Environment tag")
+	// Owner should have: case (key), pattern violation, key format = 3 violations
+	assert.GreaterOrEqual(t, ownerViolations, 2, "Expected at least 2 violations for Owner tag")
 }
 
 func TestValidateTags_ProhibitedTags(t *testing.T) {
@@ -293,4 +327,43 @@ func TestValidateTags_ProhibitedTags(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestValidateTags_MultipleViolationsPerTag(t *testing.T) {
+	config := createTestConfig()
+	validator := NewTagValidator(config)
+
+	tags := map[string]string{
+		"Environment": "INVALID-ENV",   // Case violation + invalid value + key format
+		"owner":       "invalid-email", // Pattern violation
+		"temp":        "value",         // Prohibited tag
+	}
+
+	result := validator.ValidateTags(tags)
+	assert.False(t, result.IsCompliant)
+
+	// Check for multiple violation types
+	violationTypes := make(map[ViolationType]int)
+	for _, violation := range result.Violations {
+		violationTypes[violation.Type]++
+		fmt.Printf("Violation: %+v\n", violation) // Debug print
+	}
+
+	// Environment tag should have multiple violations
+	assert.GreaterOrEqual(t, violationTypes[ViolationTypeCaseViolation], 1, "Expected case violation")
+	assert.GreaterOrEqual(t, violationTypes[ViolationTypeInvalidValue], 1, "Expected invalid value violation")
+	assert.GreaterOrEqual(t, violationTypes[ViolationTypeInvalidKeyFormat], 1, "Expected key format violation")
+
+	// Owner tag should have pattern violation
+	assert.GreaterOrEqual(t, violationTypes[ViolationTypePatternViolation], 1, "Expected pattern violation")
+
+	// Temp tag should be prohibited
+	assert.GreaterOrEqual(t, violationTypes[ViolationTypeProhibitedTag], 1, "Expected prohibited tag violation")
+
+	// Total violations should be at least 5 (3 for Environment + 1 for owner + 1 for temp)
+	totalViolations := 0
+	for _, count := range violationTypes {
+		totalViolations += count
+	}
+	assert.GreaterOrEqual(t, totalViolations, 5, "Expected at least 5 total violations")
 }

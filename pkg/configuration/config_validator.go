@@ -100,8 +100,7 @@ func (v *ContentValidator) validateVersion() error {
 	}
 
 	if v.cfg.Version != constants.SupportedConfigVersion {
-		return fmt.Errorf("unsupported configuration version: %s, expected: %s",
-			v.cfg.Version, constants.SupportedConfigVersion)
+		return fmt.Errorf("unsupported configuration version")
 	}
 
 	return nil
@@ -216,6 +215,14 @@ func (v *ContentValidator) validateTagValidation() error {
 		for tag, pattern := range v.cfg.TagValidation.PatternRules {
 			if _, err := regexp.Compile(pattern); err != nil {
 				return fmt.Errorf("invalid pattern rule for tag %s: %s", tag, err)
+			}
+		}
+	}
+
+	if v.cfg.TagValidation.AllowedValues != nil {
+		for _, values := range v.cfg.TagValidation.AllowedValues {
+			if len(values) == 0 {
+				return fmt.Errorf("no allowed values specified")
 			}
 		}
 	}

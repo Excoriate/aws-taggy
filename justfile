@@ -122,3 +122,26 @@ docker-clean:
     @docker rmi aws-taggy:amd64 2>/dev/null || true
     @docker rmi aws-taggy:latest 2>/dev/null || true
     @docker system prune -f
+
+# GitHub Actions-like Lint Workflow 🕵️
+ci-lint:
+    @echo "🔍 Running Golangci-Lint (GitHub Actions Style)"
+    @golangci-lint run \
+        --config .golangci.yml \
+        --timeout=5m \
+        --verbose
+
+# GitHub Actions-like Test Workflow 🧪
+ci-test:
+    @echo "🚀 Running Tests with Coverage (GitHub Actions Style)"
+    @go test \
+        -race \
+        -coverprofile="coverage.out" \
+        -covermode=atomic \
+        -parallel=1 \
+        -v \
+        ./...
+
+# Comprehensive CI Check (Lint + Test) 🏁
+ci-check: ci-lint ci-test
+    @echo "✅ All CI checks passed successfully!"

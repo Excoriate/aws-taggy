@@ -2,8 +2,6 @@ module github.com/Excoriate/aws-taggy
 
 go 1.23.3
 
-toolchain go1.23.3
-
 require (
 	github.com/aws/aws-sdk-go-v2 v1.35.0
 	github.com/aws/aws-sdk-go-v2/config v1.28.5
