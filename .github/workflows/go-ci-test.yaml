@@ -12,7 +12,7 @@ permissions:
   checks: write
 
 env:
-  GO_VERSION: '1.22'
+  GO_VERSION: '~1.23'
 
 jobs:
   test:
@@ -39,14 +39,3 @@ jobs:
 
     - name: 🧪 Run Tests
       run: go test -race -coverprofile="coverage.out" -covermode=atomic ./...
-
-    - name: 📊 Upload Coverage Report
-      if: matrix.os == 'ubuntu-latest'
-      uses: codecov/codecov-action@v3
-      with:
-        files: ./coverage.out
-        fail_ci_if_error: true
-
-    - name: 📋 Test Summary
-      if: failure()
-      run: echo "🚨 Unit tests failed. Please review the test output and fix any issues."
