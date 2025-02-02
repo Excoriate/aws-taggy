@@ -106,7 +106,7 @@ aws:
   regions:
     mode: all
 `,
-				expectedError: "unsupported configuration version",
+				expectedError: "invalid version format: 0.1.0, expected format: X.Y",
 			},
 			{
 				name: "Invalid AWS Regions Mode",
