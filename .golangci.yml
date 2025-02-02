@@ -58,5 +58,5 @@ issues:
   max-issues-per-linter: 0
   max-same-issues: 0
 
-  # Only show new issues compared to previous commit
-  new-from-rev: HEAD~1
+  # # Only show new issues compared to previous commit
+  # new-from-rev: HEAD~1
