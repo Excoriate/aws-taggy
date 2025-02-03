@@ -272,7 +272,7 @@ func (c *CheckCmd) Run() error {
 		if err != nil {
 			return fmt.Errorf("failed to marshal JSON data: %w", err)
 		}
-		if err := os.WriteFile(c.OutputFile, jsonData, 0644); err != nil {
+		if err := os.WriteFile(c.OutputFile, jsonData, 0o644); err != nil {
 			return fmt.Errorf("failed to write JSON to file: %w", err)
 		}
 		logger.Info(fmt.Sprintf("✅ Detailed compliance results written to %s", c.OutputFile))

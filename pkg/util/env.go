@@ -16,7 +16,7 @@ import (
 //   - An error if no AWS-related environment variables are found
 func ScanAWSEnvVars() (map[string]string, error) {
 	awsVars := make(map[string]string)
-	
+
 	// Specific AWS-related environment variables to look for
 	awsSpecificVars := map[string]bool{
 		"AWS_REGION":            true,
@@ -25,7 +25,7 @@ func ScanAWSEnvVars() (map[string]string, error) {
 		"AWS_SECRET_ACCESS_KEY": true,
 		"AWS_SESSION_TOKEN":     true,
 	}
-	
+
 	// Iterate through all environment variables
 	for _, env := range os.Environ() {
 		// Split the environment variable into name and value
@@ -33,7 +33,7 @@ func ScanAWSEnvVars() (map[string]string, error) {
 			if env[i] == '=' {
 				name := env[:i]
 				value := env[i+1:]
-				
+
 				// Check if the variable is in our specific AWS variables list
 				if awsSpecificVars[name] && value != "" {
 					awsVars[name] = value
@@ -41,12 +41,12 @@ func ScanAWSEnvVars() (map[string]string, error) {
 			}
 		}
 	}
-	
+
 	// Return an error if no AWS variables were found
 	if len(awsVars) == 0 {
 		return nil, fmt.Errorf("no AWS environment variables found")
 	}
-	
+
 	return awsVars, nil
 }
 

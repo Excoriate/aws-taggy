@@ -18,7 +18,7 @@ func createTempConfigFile(t *testing.T, content string) string {
 
 	// Create a temporary config file
 	configPath := filepath.Join(tempDir, "test_config.yaml")
-	err := os.WriteFile(configPath, []byte(content), 0644)
+	err := os.WriteFile(configPath, []byte(content), 0o644)
 	require.NoError(t, err)
 
 	return configPath

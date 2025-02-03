@@ -21,8 +21,9 @@ import (
 //   - A string containing the ASCII art representation of the application name.
 //
 // Example:
-//   banner := GetBanner()
-//   fmt.Println(banner) // Prints a large, styled banner with the app name
+//
+//	banner := GetBanner()
+//	fmt.Println(banner) // Prints a large, styled banner with the app name
 func GetBanner() string {
 	// Convert the application name to uppercase for better visual impact
 	appNameUpper := strings.ToUpper(constants.AppName)

@@ -73,6 +73,7 @@ func TestIsValidRegion(t *testing.T) {
 		})
 	}
 }
+
 func TestNormalizeAWSConfig(t *testing.T) {
 	t.Run("Empty Configuration", func(t *testing.T) {
 		cfg := &AWSConfig{}

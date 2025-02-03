@@ -2,6 +2,7 @@ package inspector
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 
@@ -83,7 +84,7 @@ func (sm *InspectorManager) Inspect(ctx context.Context) error {
 
 				mu.Lock()
 				sm.errors = append(sm.errors, errorMsg)
-				errChan <- fmt.Errorf(errorMsg)
+				errChan <- errors.New(errorMsg)
 				mu.Unlock()
 				return
 			}
@@ -105,7 +106,7 @@ func (sm *InspectorManager) Inspect(ctx context.Context) error {
 	}
 
 	if len(errs) > 0 {
-		return fmt.Errorf("scanning encountered %d errors: %v", len(errs), errs)
+		return errors.Join(errs...)
 	}
 
 	return nil

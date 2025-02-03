@@ -54,7 +54,7 @@ func TestScanAWSEnvVars(t *testing.T) {
 		{
 			name: "No AWS Environment Variables",
 			setupEnvVars: map[string]string{
-				"SOME_OTHER_VAR": "ignored",
+				"SOME_OTHER_VAR":      "ignored",
 				"AWS_SDK_LOAD_CONFIG": "true", // This should not count as an AWS credential var
 			},
 			expectedResult: nil,
@@ -86,11 +86,11 @@ func TestScanAWSEnvVars(t *testing.T) {
 			} else {
 				assert.NoError(t, err, "Did not expect an error")
 				assert.NotNil(t, result, "Result should not be nil")
-				
+
 				// Check that only AWS-prefixed variables are returned
 				for key, value := range result {
-					assert.Truef(t, 
-						len(key) > 4 && key[:4] == "AWS_", 
+					assert.Truef(t,
+						len(key) > 4 && key[:4] == "AWS_",
 						"Key %s should start with AWS_", key,
 					)
 					assert.NotEmptyf(t, value, "Value for key %s should not be empty", key)
@@ -102,11 +102,11 @@ func TestScanAWSEnvVars(t *testing.T) {
 
 func TestGetAWSSpecificEnvVars(t *testing.T) {
 	testCases := []struct {
-		name           string
-		setupEnvVars   map[string]string
-		getEnvVarFunc  func() (string, error)
-		expectedValue  string
-		expectError    bool
+		name          string
+		setupEnvVars  map[string]string
+		getEnvVarFunc func() (string, error)
+		expectedValue string
+		expectError   bool
 	}{
 		{
 			name: "Get AWS Region",

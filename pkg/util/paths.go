@@ -22,11 +22,12 @@ import (
 //     access issues or invalid path formats.
 //
 // Example:
-//   absPath, err := ResolveAbsolutePath("./config/app.yaml")
-//   if err != nil {
-//       // Handle error
-//   }
-//   // absPath now contains the full absolute path
+//
+//	absPath, err := ResolveAbsolutePath("./config/app.yaml")
+//	if err != nil {
+//	    // Handle error
+//	}
+//	// absPath now contains the full absolute path
 func ResolveAbsolutePath(configPath string) (string, error) {
 	absPath, err := filepath.Abs(configPath)
 	if err != nil {

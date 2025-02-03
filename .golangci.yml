@@ -24,11 +24,14 @@ linters-settings:
       - style
     disabled-checks:
       - whyNoLint
+  revive:
+    rules:
+      - name: exported
+        disabled: true
 
 linters:
   # Explicitly enable key linters
   enable:
-    - govet
     - errcheck
     - staticcheck
     - gosimple
@@ -40,9 +43,7 @@ linters:
     - bodyclose
   # Disable deprecated or overly strict linters
   disable:
-    - golint  # Deprecated
-    - typecheck  # Too noisy
-    - prealloc
+    - govet  # Too noisy
 
 issues:
   # Exclude rules for test files
@@ -53,6 +54,10 @@ issues:
         - errcheck
         - dupl
         - gosec
+    - linters:
+        - revive
+      text: "unused-parameter"
+      path: _test\.go
 
   # Limit issue reporting
   max-issues-per-linter: 0

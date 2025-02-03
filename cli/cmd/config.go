@@ -49,7 +49,7 @@ tag_compliance:
 `
 
 	// Write the sample configuration to the specified output file
-	err := os.WriteFile(g.Output, []byte(sampleConfig), 0644)
+	err := os.WriteFile(g.Output, []byte(sampleConfig), 0o644)
 	if err != nil {
 		return fmt.Errorf("failed to write configuration file: %v", err)
 	}

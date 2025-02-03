@@ -18,7 +18,7 @@ func createTempConfigFile(t *testing.T, content string) string {
 
 	// Create a temporary configuration file
 	tempFile := filepath.Join(tempDir, "tag-compliance.yaml")
-	err = os.WriteFile(tempFile, []byte(content), 0644)
+	err = os.WriteFile(tempFile, []byte(content), 0o644)
 	require.NoError(t, err)
 
 	// Cleanup function to remove temporary files

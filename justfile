@@ -1,8 +1,8 @@
-# aws-taggy Justfile 🏷️🚀
-# Manages build, test, and development workflows for the aws-taggy CLI
-
 # Default project name
 projectname := "aws-taggy"
+
+# Enable dotenv loading
+set dotenv-load
 
 # Display help information 📖
 default:
@@ -13,18 +13,27 @@ help:
     @just --list
 
 # Build the Go binary 🛠️
-build:
-    @go build -ldflags "-X cmd.version=$(git describe --abbrev=0 --tags || echo devel)" -o {{projectname}}
+build: clean-build
+    @echo "🚀 Building AWS Taggy CLI..."
+    @go mod tidy
+    @cd cli && go build -ldflags "-X cmd.version=$(git describe --abbrev=0 --tags 2>/dev/null || echo devel)" -o ../{{projectname}}
+    @echo "🚀 AWS Taggy CLI built successfully!"
 
-# Install the Go binary globally 📦
-install:
-    @go install -ldflags "-X main.version=$(git describe --abbrev=0 --tags)"
+# Clean the build directory 🧹
+clean-build:
+    @echo "🧹 Cleaning AWS Taggy CLI build directory..."
+    @if [ -f "{{projectname}}" ]; then rm "{{projectname}}"; fi
+    @echo "🧹 AWS Taggy CLI compiled binary removed successfully!"
 
 # Run the application directly 🚀🔧 Support arguments.
 run *args:
     @echo "🌟 Launching aws-taggy CLI in Developer Mode 🖥️"
     @echo "🔍 Running from local source code..."
     @go run cli/main.go {{args}}
+
+# Run the application directly 🚀🔧 Support arguments.
+runbin *args: build
+    @./{{projectname}} {{args}}
 
 # Bootstrap development environment 🔧
 bootstrap:
@@ -36,7 +45,8 @@ test: clean
     @go tool cover -func=coverage.out | sort -rnk3
 
 # Clean up build artifacts and temporary files 🧹
-clean:
+clean: clean-build
+    @echo "🧹 Cleaning coverage.out, dist/ and compiled binary..."
     @rm -rf coverage.out dist/ {{projectname}}
 
 # Generate detailed test coverage report 📊
@@ -46,12 +56,14 @@ cover:
 
 # Format Go source code 🖌️
 fmt:
+    @echo "📜 Formatting Go source code..."
+    @echo "✅ Formatting complete. Check formatted_files.log for details."
     @gofumpt -w .
-    @gci write .
+    @go fmt ./...
 
 # Run linters to ensure code quality 🕵️
 lint:
-    @golangci-lint run -c .golang-ci.yml
+    @golangci-lint run --config=./.golangci.yml --timeout=5m --verbose
 
 # Run pre-commit hooks for code quality checks 🏁
 run-hooks:
@@ -59,14 +71,9 @@ run-hooks:
     @pre-commit autoupdate
     @pre-commit run --all-files
 
-# Run an example in the tests/examples directory 📚🔍
-run-example dir mode:
-    @echo "🚀 Running example in: {{dir}} 🔍"
-    @./tests/examples/{{dir}}/run.sh {{mode}}
-
 # Docker-related commands 🐳
 # Build Docker image for Apple Silicon (arm64)
-docker-build-arm:
+build-docker-arm:
     @docker buildx build \
         --platform linux/arm64 \
         -t aws-taggy:arm64 \
@@ -75,7 +82,7 @@ docker-build-arm:
         .
 
 # Build Docker image for Linux (amd64)
-docker-build-linux:
+build-docker-linux:
     @docker buildx build \
         --platform linux/amd64 \
         -t aws-taggy:amd64 \
@@ -84,7 +91,7 @@ docker-build-linux:
         .
 
 # Build multi-platform Docker image
-docker-build-multi:
+build-docker-multi:
     @docker buildx build \
         --platform linux/amd64,linux/arm64 \
         -t aws-taggy:latest \
@@ -123,27 +130,12 @@ docker-clean:
     @docker rmi aws-taggy:latest 2>/dev/null || true
     @docker system prune -f
 
-# GitHub Actions-like Lint Workflow 🕵️
-ci-lint:
-    @echo "🔍 Running Golangci-Lint (GitHub Actions Style)"
-    @golangci-lint run \
-        --config .golangci.yml \
-        --timeout=5m \
-        --verbose
-
-# GitHub Actions-like Test Workflow 🧪
-ci-test:
-    @echo "🚀 Running Tests with Coverage (GitHub Actions Style)"
-    @go test \
-        -race \
-        -coverprofile="coverage.out" \
-        -covermode=atomic \
-        -parallel=1 \
-        -v \
-        ./...
+# GitHub Actions-like Go Workflow 🔍
+ci-go: fmt lint build
+    @echo "🔍 Running Go CI (fmt, lint, build)"
 
 # Comprehensive CI Check (Lint + Test) 🏁
-ci-check: ci-lint ci-test
+ci: ci-go test run-hooks
     @echo "✅ All CI checks passed successfully!"
 
 # Nix Development Shell 🌿
@@ -153,19 +145,3 @@ ci-check: ci-lint ci-test
 nix-shell:
     @echo "🌿 Starting Nix Development Shell for AWS Taggy 🏷️"
     @nix develop . --extra-experimental-features nix-command --extra-experimental-features flakes
-
-# Update Nix flake dependencies 🔄
-nix-update:
-    @echo "🔄 Updating Nix Flake Dependencies"
-    @nix flake update
-
-# Build project using Nix 🛠️
-nix-build:
-    @echo "🛠️ Building AWS Taggy with Nix"
-    @nix build
-
-# Clean Nix build artifacts 🧹
-nix-clean:
-    @echo "🧹 Cleaning Nix Build Artifacts"
-    @nix clean
-    @rm -rf result

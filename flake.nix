@@ -15,12 +15,14 @@
         devShell = pkgs.mkShell {
           buildInputs = with pkgs; [
             # Go toolchain
-            go_1_23
+            go
 
             # Development and build tools
             goreleaser
             golangci-lint
             just
+            gofumpt
+            gci
 
             # Additional utilities
             bash
@@ -32,7 +34,7 @@
 
           # Environment variables and shell configuration
           shellHook = ''
-            echo "🚀 Welcome to AWS Taggy Development Environment 🏷️"
+            echo "�� Welcome to AWS Taggy Development Environment 🏷️"
             echo "Go version: $(go version)"
             echo "Golangci-lint version: $(golangci-lint version)"
           '';

@@ -2,6 +2,7 @@ package inspector
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 )
@@ -332,7 +333,8 @@ func (s *AsyncResourceInspector) InspectResourcesAsync(
 		for i, err := range scanErrors {
 			errMsg += fmt.Sprintf("  %d. %v\n", i+1, err)
 		}
-		return results, fmt.Errorf(errMsg)
+
+		return results, errors.New(errMsg)
 	}
 
 	return results, nil

@@ -69,3 +69,12 @@ result-*
 
 # Flakes
 flake.lock
+
+# Environment files
+.env.local
+.env.development
+.env.production
+.env.test
+
+# AWS Taggy CLI
+aws-taggy

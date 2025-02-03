@@ -117,8 +117,7 @@ type CaseSensitivityConfig struct {
 }
 
 // CaseTransformationConfig defines case transformation rules
-type CaseTransformationConfig struct {
-}
+type CaseTransformationConfig struct{}
 
 // KeyValidation defines validation rules specific to tag keys
 type KeyValidation struct {
