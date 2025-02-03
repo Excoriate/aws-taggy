@@ -32,7 +32,7 @@ AWS Taggy solves these challenges by:
 Using [Homebrew](https://brew.sh/):
 
 ```bash
-brew tap excoriate/tap
+brew tap Excoriate/aws-taggy
 brew install aws-taggy
 ```
 
