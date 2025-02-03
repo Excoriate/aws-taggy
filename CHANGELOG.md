@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.0](https://github.com/Excoriate/aws-taggy/compare/v1.1.0...v1.2.0) (2025-02-03)
+
+
+### Features
+
+* Add build-release job to create release artifacts ([#6](https://github.com/Excoriate/aws-taggy/issues/6)) ([8d47b63](https://github.com/Excoriate/aws-taggy/commit/8d47b6310b625e2b8586c4a39b9a7e4d960f5a39))
+
 ## [1.1.0](https://github.com/Excoriate/aws-taggy/compare/v1.0.0...v1.1.0) (2025-02-03)
 
 
