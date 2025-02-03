@@ -22,7 +22,6 @@ type VPCInspector struct {
 
 // NewVPCInspector creates a new VPCInspector with AWS client management
 func NewVPCInspector(regions []string) (*VPCInspector, error) {
-	// Create AWS client manager for the specified regions
 	clientManager, err := NewAWSRegionalClientManager(regions)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create AWS client manager: %w", err)
