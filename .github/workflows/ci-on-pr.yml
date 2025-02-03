@@ -1,0 +1,170 @@
+---
+name: 🚀 CI on Pull Request
+on:
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: read
+  checks: write
+
+env:
+  GO_VERSION: '~1.23'
+  GOLANGCI_LINT_VERSION: v1.63.4
+  GORELEASER_VERSION: '~> v2'
+
+jobs:
+  # Fast feedback loop: Code Quality Checks
+  code-quality:
+    name: 🧐 Code Quality
+    runs-on: ubuntu-latest
+    steps:
+    - name: 📥 Checkout Code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 2
+
+    - name: ⚙️ Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: ${{ env.GO_VERSION }}
+        cache: false
+
+    - name: 🧹 Go Format
+      run: |
+        echo "🖌️ Checking code formatting..."
+        gofmt -d .
+        if [ -n "$(gofmt -d .)" ]; then
+          echo "❌ Code is not formatted correctly. Run 'go fmt ./...' to fix."
+          exit 1
+        fi
+
+    - name: 🔍 Golangci-Lint
+      uses: golangci/golangci-lint-action@v6
+      with:
+        version: ${{ env.GOLANGCI_LINT_VERSION }}
+        args: --timeout=5m --config=./.golangci.yml
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+
+  # Build and Test Job
+  build-and-test:
+    name: 🏗️ Build & Test
+    needs: [code-quality]
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+    - name: 📥 Checkout Code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 2
+
+    - name: ⚙️ Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: ${{ env.GO_VERSION }}
+        cache: false
+
+    - name: 📦 Get Dependencies
+      run: |
+        go mod tidy
+        go mod download
+
+    - name: 🏗️ Build CLI
+      run: |
+        cd cli
+        go build -o aws-taggy
+
+    - name: 🧪 Run Unit Tests
+      run: |
+        go test -race -coverprofile="coverage.out" -covermode=atomic ./...
+
+  # CLI Functionality Test
+  cli-test:
+    name: 🖥️ CLI Functionality
+    needs: [build-and-test]
+    runs-on: ubuntu-latest
+    steps:
+    - name: 📥 Checkout Code
+      uses: actions/checkout@v4
+
+    - name: ⚙️ Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: ${{ env.GO_VERSION }}
+
+    - name: 🏗️ Build CLI
+      run: |
+        cd cli
+        go build -o aws-taggy
+
+    - name: 🔍 Test CLI Help Command
+      run: |
+        ./cli/aws-taggy --help
+        ./cli/aws-taggy version
+
+  # Pre-commit Hooks
+  pre-commit:
+    name: 🧼 Pre-commit Hooks
+    needs: [cli-test]
+    runs-on: ubuntu-latest
+    steps:
+    - name: 📥 Checkout Code
+      uses: actions/checkout@v4
+
+    - name: ⚙️ Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: 🔧 Install Pre-commit
+      run: |
+        pip install pre-commit
+        pre-commit install
+
+    - name: 🧹 Run Pre-commit Hooks
+      run: pre-commit run --all-files
+
+  # Snapshot Release (Dry Run)
+  goreleaser-snapshot:
+    name: 📦 GoReleaser Snapshot
+    needs: [pre-commit]
+    runs-on: ubuntu-latest
+    steps:
+    - name: 📥 Checkout Code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: ⚙️ Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: ${{ env.GO_VERSION }}
+
+    - name: 🚀 Run GoReleaser Snapshot
+      uses: goreleaser/goreleaser-action@v6
+      with:
+        distribution: goreleaser
+        version: ${{ env.GORELEASER_VERSION }}
+        args: release --snapshot --clean
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # Final Status Check
+  pr-validation:
+    name: ✅ PR Validation
+    needs: [goreleaser-snapshot]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+    - name: 🎉 PR Ready to Merge
+      run: |
+        if [[ "${{ contains(needs.*.result, 'failure') }}" == "true" ]]; then
+          echo "❌ Some checks failed. Please review and fix."
+          exit 1
+        else
+          echo "✅ All checks passed successfully!"
+        fi
