@@ -16,7 +16,7 @@ env:
   GORELEASER_VERSION: '~> v2'
 
 jobs:
-  # Fast feedback loop: Code Quality Checks
+  # Parallel Code Quality Checks
   code-quality:
     name: 🧐 Code Quality
     runs-on: ubuntu-latest
@@ -48,13 +48,25 @@ jobs:
         args: --timeout=5m --config=./.golangci.yml
         github-token: ${{ secrets.GITHUB_TOKEN }}
 
-  # Build and Test Job
-  build-and-test:
-    name: 🏗️ Build & Test
-    needs: [code-quality]
+    - name: 🧼 Pre-commit Hooks
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: 🔧 Install Pre-commit
+      run: |
+        pip install pre-commit
+        pre-commit install
+
+    - name: 🧹 Run Pre-commit Hooks
+      run: pre-commit run --all-files
+
+  # Parallel Build Job
+  build:
+    name: 🏗️ Build CLI
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        os: [ubuntu-latest, macos-latest, windows-latest]
     runs-on: ${{ matrix.os }}
     steps:
     - name: 📥 Checkout Code
@@ -78,59 +90,10 @@ jobs:
         cd cli
         go build -o aws-taggy
 
-    - name: 🧪 Run Unit Tests
-      run: |
-        go test -race -coverprofile="coverage.out" -covermode=atomic ./...
-
-  # CLI Functionality Test
-  cli-test:
-    name: 🖥️ CLI Functionality
-    needs: [build-and-test]
-    runs-on: ubuntu-latest
-    steps:
-    - name: 📥 Checkout Code
-      uses: actions/checkout@v4
-
-    - name: ⚙️ Set up Go
-      uses: actions/setup-go@v5
-      with:
-        go-version: ${{ env.GO_VERSION }}
-
-    - name: 🏗️ Build CLI
-      run: |
-        cd cli
-        go build -o aws-taggy
-
-    - name: 🔍 Test CLI Help Command
-      run: |
-        ./cli/aws-taggy --help
-
-  # Pre-commit Hooks
-  pre-commit:
-    name: 🧼 Pre-commit Hooks
-    needs: [cli-test]
-    runs-on: ubuntu-latest
-    steps:
-    - name: 📥 Checkout Code
-      uses: actions/checkout@v4
-
-    - name: ⚙️ Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.11'
-
-    - name: 🔧 Install Pre-commit
-      run: |
-        pip install pre-commit
-        pre-commit install
-
-    - name: 🧹 Run Pre-commit Hooks
-      run: pre-commit run --all-files
-
-  # Snapshot Release (Dry Run)
-  goreleaser-snapshot:
-    name: 📦 GoReleaser Snapshot
-    needs: [pre-commit]
+  # Testing and Validation Job
+  test-and-validate:
+    name: 🧪 Tests & Release
+    needs: [build]
     runs-on: ubuntu-latest
     steps:
     - name: 📥 Checkout Code
@@ -142,6 +105,24 @@ jobs:
       uses: actions/setup-go@v5
       with:
         go-version: ${{ env.GO_VERSION }}
+
+    - name: 📦 Get Dependencies
+      run: |
+        go mod tidy
+        go mod download
+
+    - name: 🧪 Run Unit Tests
+      run: |
+        go test -race -coverprofile="coverage.out" -covermode=atomic ./...
+
+    - name: 🏗️ Build CLI
+      run: |
+        cd cli
+        go build -o aws-taggy
+
+    - name: 🔍 Test CLI Help Command
+      run: |
+        ./cli/aws-taggy --help
 
     - name: 🚀 Run GoReleaser Snapshot
       uses: goreleaser/goreleaser-action@v6
@@ -155,7 +136,7 @@ jobs:
   # Final Status Check
   pr-validation:
     name: ✅ PR Validation
-    needs: [goreleaser-snapshot]
+    needs: [code-quality, build, test-and-validate]
     runs-on: ubuntu-latest
     if: always()
     steps:
