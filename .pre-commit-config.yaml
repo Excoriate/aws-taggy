@@ -29,11 +29,12 @@ repos:
       - id: go-fmt
       - id: go-fumpt
       - id: go-imports
+
   - repo: local
     hooks:
       - id: test
         name: Run tests
-        entry: just test
+        entry: go test ./...
         language: system
         pass_filenames: false
         always_run: true

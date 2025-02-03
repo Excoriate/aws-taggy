@@ -1,0 +1,158 @@
+---
+name: 🚀 CI on Pull Request
+on:
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: read
+  checks: write
+
+env:
+  GO_VERSION: '~1.23'
+  GOLANGCI_LINT_VERSION: v1.63.4
+  GORELEASER_VERSION: '~> v2'
+
+jobs:
+  # Parallel Code Quality Checks
+  code-quality:
+    name: 🧐 Code Quality
+    runs-on: ubuntu-latest
+    steps:
+    - name: 📥 Checkout Code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 2
+
+    - name: ⚙️ Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: ${{ env.GO_VERSION }}
+        cache: false
+
+    - name: 🧹 Go Format
+      run: |
+        echo "🖌️ Checking code formatting..."
+        gofmt -d .
+        if [ -n "$(gofmt -d .)" ]; then
+          echo "❌ Code is not formatted correctly. Run 'go fmt ./...' to fix."
+          exit 1
+        fi
+
+    - name: 🔍 Golangci-Lint
+      uses: golangci/golangci-lint-action@v6
+      with:
+        version: ${{ env.GOLANGCI_LINT_VERSION }}
+        args: --timeout=5m --config=./.golangci.yml
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: 🧼 Pre-commit Hooks
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: 🔧 Install Pre-commit
+      run: |
+        pip install pre-commit
+        pre-commit install
+
+    - name: 🧰 Install Go Tools
+      run: |
+        go install mvdan.cc/gofumpt@latest
+        go install golang.org/x/tools/cmd/goimports@latest
+
+        # Add Go bin directory to PATH
+        echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
+
+    - name: 🧹 Run Pre-commit Hooks
+      run: pre-commit run --all-files
+
+  # Parallel Build Job
+  build:
+    name: 🏗️ Build CLI
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+    - name: 📥 Checkout Code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 2
+
+    - name: ⚙️ Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: ${{ env.GO_VERSION }}
+        cache: false
+
+    - name: 📦 Get Dependencies
+      run: |
+        go mod tidy
+        go mod download
+
+    - name: 🏗️ Build CLI
+      run: |
+        cd cli
+        go build -o aws-taggy
+
+  # Testing and Validation Job
+  test-and-validate:
+    name: 🧪 Tests & Release
+    needs: [build]
+    runs-on: ubuntu-latest
+    steps:
+    - name: 📥 Checkout Code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: ⚙️ Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: ${{ env.GO_VERSION }}
+
+    - name: 📦 Get Dependencies
+      run: |
+        go mod tidy
+        go mod download
+
+    - name: 🧪 Run Unit Tests
+      run: |
+        go test -race -coverprofile="coverage.out" -covermode=atomic ./...
+
+    - name: 🏗️ Build CLI
+      run: |
+        cd cli
+        go build -o aws-taggy
+
+    - name: 🔍 Test CLI Help Command
+      run: |
+        ./cli/aws-taggy --help
+
+    - name: 🚀 Run GoReleaser Snapshot
+      uses: goreleaser/goreleaser-action@v6
+      with:
+        distribution: goreleaser
+        version: ${{ env.GORELEASER_VERSION }}
+        args: release --snapshot --clean
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # Final Status Check
+  pr-validation:
+    name: ✅ PR Validation
+    needs: [code-quality, build, test-and-validate]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+    - name: 🎉 PR Ready to Merge
+      run: |
+        if [[ "${{ contains(needs.*.result, 'failure') }}" == "true" ]]; then
+          echo "❌ Some checks failed. Please review and fix."
+          exit 1
+        else
+          echo "✅ All checks passed successfully!"
+        fi

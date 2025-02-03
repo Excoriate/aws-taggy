@@ -11,7 +11,7 @@ AWS Taggy is an advanced CLI tool designed to automate and enforce tag complianc
 - 🌎 Multi-resource type support (RDS, S3, SNS, CloudWatch Logs, EC2, etc). More resources will be added in the future.
 - 📊 Detailed compliance reporting (table, JSON, YAML, or directly in your `clipboard`)
 
-## 🎯 Use Case
+### 🎯 Use Case
 
 In modern cloud environments, maintaining consistent and meaningful resource tagging is crucial for:
 
@@ -36,26 +36,15 @@ brew tap excoriate/tap
 brew install aws-taggy
 ```
 
----
+### Developer Experience 🌿
 
-## 📄 License
-
-[MIT License](./LICENSE)
-
-## 🔮 Roadmap
-
-- [ ] Multi-cloud support
-- [ ] Add support for AWS resources: SQS, Redshift, SES, SSM, EKS, ECS.
-
-## Nix Development Environment 🌿
-
-### Prerequisites
+#### Prerequisites
 
 - [Nix](https://nixos.org/download.html)
 - [direnv](https://direnv.net/) (optional but recommended)
 - [Just](https://github.com/casey/just)
 
-### Getting Started
+#### Getting Started
 
 1. **Automatic Environment Setup (Recommended)**:
 
@@ -70,20 +59,29 @@ brew install aws-taggy
    just nix-shell
    ```
 
-### Available Commands
+#### Available Commands
 
 - `just nix-shell`: Start the Nix development shell
-- `just nix-update`: Update Nix flake dependencies
-- `just nix-build`: Build the project using Nix
-- `just nix-clean`: Clean Nix build artifacts
+- `just ci`: Run the CI pipeline entirely, locally through Nix.
 
-### Features
+---
 
-- Reproducible development environment
-- Consistent toolchain across different systems
-- Easy dependency management
-- Automatic environment setup with direnv
+## 📚 Documentation
 
-### Customization
+| Directory                  | Description                                             | Contents                                                                                                                     |
+| -------------------------- | ------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `docs/how-it-works/`       | Technical deep-dive into AWS Taggy's internal mechanics | - Compliance check flow documentation                                                                                        |
+| `docs/user-guide/`         | Step-by-step guides for using AWS Taggy                 | - How to configure tag compliance<br>- How to query resources<br>- How to discover resources<br>- Tag compliance usage guide |
+| `docs/examples/`           | Real-world configuration and usage examples             | - Sample configuration files<br>- S3 tag scanning scenarios                                                                  |
+| `docs/tag-compliance.yaml` | Comprehensive tag compliance configuration template     | Detailed example of a full tag compliance configuration                                                                      |
 
-Modify `flake.nix` to add or remove development tools as needed.
+For more details, explore the documentation in each directory.
+
+## 📄 License
+
+[MIT License](./LICENSE)
+
+## 🔮 Roadmap
+
+- [ ] Multi-cloud support
+- [ ] Add support for AWS resources: SQS, Redshift, SES, SSM, EKS, ECS.
