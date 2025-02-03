@@ -73,9 +73,7 @@ brew install aws-taggy
 ### Available Commands
 
 - `just nix-shell`: Start the Nix development shell
-- `just nix-update`: Update Nix flake dependencies
-- `just nix-build`: Build the project using Nix
-- `just nix-clean`: Clean Nix build artifacts
+- `just ci`: Run the CI pipeline entirely, locally through Nix.
 
 ### Features
 
