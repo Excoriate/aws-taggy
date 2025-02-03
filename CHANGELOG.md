@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.0](https://github.com/Excoriate/aws-taggy/compare/v1.0.0...v1.1.0) (2025-02-03)
+
+
+### Features
+
+* Simplify VPCInspector creation by removing redundant comment ([#3](https://github.com/Excoriate/aws-taggy/issues/3)) ([1720ffc](https://github.com/Excoriate/aws-taggy/commit/1720ffc1831a41f7f76c8d55e87b2cc965f85f02))
+
 ## 1.0.0 (2025-02-03)
 
 
