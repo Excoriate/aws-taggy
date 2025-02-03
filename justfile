@@ -149,3 +149,29 @@ nix-shell:
 # Run Goreleaser to build the release artifacts
 run-goreleaser:
     @goreleaser release --snapshot --clean
+
+# Install Go development utilities
+install-dev-tools:
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    # Function to check and install a Go tool
+    install_go_tool() {
+        local tool_name="$1"
+        local package="$2"
+
+        if ! command -v "${tool_name}" &> /dev/null; then
+            echo "🚀 Installing ${tool_name}..."
+            go install "${package}"
+        else
+            echo "✅ ${tool_name} is already installed."
+        fi
+    }
+
+    # Install gofumpt
+    install_go_tool gofumpt mvdan.cc/gofumpt@latest
+
+    # Install goimports
+    install_go_tool goimports golang.org/x/tools/cmd/goimports@latest
+
+    echo "🎉 Go development tools are ready!"
