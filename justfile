@@ -145,3 +145,7 @@ ci: ci-go test run-hooks
 nix-shell:
     @echo "🌿 Starting Nix Development Shell for AWS Taggy 🏷️"
     @nix develop . --extra-experimental-features nix-command --extra-experimental-features flakes
+
+# Run Goreleaser to build the release artifacts
+run-goreleaser:
+    @goreleaser release --snapshot --clean

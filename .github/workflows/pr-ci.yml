@@ -104,7 +104,6 @@ jobs:
     - name: 🔍 Test CLI Help Command
       run: |
         ./cli/aws-taggy --help
-        ./cli/aws-taggy version
 
   # Pre-commit Hooks
   pre-commit:

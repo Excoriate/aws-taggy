@@ -1,5 +1,0 @@
-aws-feature: ['feature/*', 'enhancement/*']
-bug: ['fix/*', 'bugfix/*']
-documentation: ['docs/*']
-performance: ['perf/*']
-dependencies: ['deps/*']
