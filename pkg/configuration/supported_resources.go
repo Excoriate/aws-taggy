@@ -15,6 +15,7 @@ var SupportedAWSResources = map[string]bool{
 	constants.ResourceTypeRoute53:        true,
 	constants.ResourceTypeSNS:            true,
 	constants.ResourceTypeRDS:            true,
+	constants.ResourceTypeSQS:            true,
 	constants.ResourceTypeLambda:         false,
 	constants.ResourceTypeEKS:            false,
 	constants.ResourceTypeECR:            false,

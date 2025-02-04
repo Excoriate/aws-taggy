@@ -128,6 +128,8 @@ func New(resourceType string, cfg configuration.TaggyScanConfig) (Inspector, err
 		return NewSNSInspector(regions)
 	case constants.ResourceTypeRDS:
 		return NewRDSInspector(regions)
+	case constants.ResourceTypeSQS:
+		return NewSQSInspector(regions)
 	default:
 		return nil, fmt.Errorf("unsupported resource type: %s", resourceType)
 	}
