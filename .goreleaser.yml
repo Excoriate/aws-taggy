@@ -57,7 +57,7 @@ brews:
       owner: Excoriate
       name: homebrew-tap
       branch: main
-      token: ${{ Env.GH_HOMEBREW_TOKEN }}
+      token: ${{ .Env.GH_HOMEBREW_TOKEN }}
     url_template: https://github.com/Excoriate/aws-taggy/releases/download/{{ .Tag }}/{{ .ArtifactName }}
     commit_author:
       name: Alex Torres
