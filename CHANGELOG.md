@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.3.0](https://github.com/Excoriate/aws-taggy/compare/v1.2.1...v1.3.0) (2025-02-04)
+
+
+### Features
+
+* Add support for AWS SQS resources ([#10](https://github.com/Excoriate/aws-taggy/issues/10)) ([9ac3047](https://github.com/Excoriate/aws-taggy/commit/9ac304742d241bcda2e89c0f36b5d74dbd8d3d5b))
+
 ## [1.2.1](https://github.com/Excoriate/aws-taggy/compare/v1.2.0...v1.2.1) (2025-02-04)
 
 
