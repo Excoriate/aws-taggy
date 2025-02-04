@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.1](https://github.com/Excoriate/aws-taggy/compare/v1.2.0...v1.2.1) (2025-02-04)
+
+
+### Bug Fixes
+
+* Update Homebrew token in .goreleaser.yml ([#8](https://github.com/Excoriate/aws-taggy/issues/8)) ([aaae42e](https://github.com/Excoriate/aws-taggy/commit/aaae42e5f6959daa30f5e12f716990632417034e))
+
 ## [1.2.0](https://github.com/Excoriate/aws-taggy/compare/v1.1.0...v1.2.0) (2025-02-03)
 
 
