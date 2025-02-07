@@ -160,39 +160,39 @@ func (d *DiscoverCmd) discoverResources(client *taggy.TaggyClient, logger *o11y.
 		return nil
 	}
 
+	// Prepare clipboard output (always in YAML)
+	type DiscoveryResult struct {
+		Service           string        `json:"service" yaml:"service"`
+		Region            string        `json:"region" yaml:"region"`
+		TotalResources    int           `json:"total_resources" yaml:"total_resources"`
+		TaggedResources   int           `json:"tagged_resources" yaml:"tagged_resources"`
+		UntaggedResources int           `json:"untagged_resources" yaml:"untagged_resources"`
+		Resources         []ResourceRow `json:"resources" yaml:"resources"`
+	}
+
+	clipboardOutput := DiscoveryResult{
+		Service:           d.Service,
+		Region:            d.Region,
+		TotalResources:    totalResources,
+		TaggedResources:   resourcesWithTags,
+		UntaggedResources: totalResources - resourcesWithTags,
+		Resources:         resourceRows,
+	}
+
+	// If clipboard flag is set, copy to clipboard in YAML
+	if d.Clipboard {
+		if err := output.WriteToClipboard(clipboardOutput); err != nil {
+			return fmt.Errorf("failed to copy resource discovery results to clipboard for service %s in region %s: %w", d.Service, d.Region, err)
+		}
+		logger.Info("✅ Resource discovery results copied to clipboard!")
+	}
+
 	// Create output formatter
 	formatter := output.NewFormatter(d.Output)
 
 	// If using structured output (JSON/YAML), prepare the data structure
 	if formatter.IsStructured() {
-		type DiscoveryResult struct {
-			Service           string        `json:"service" yaml:"service"`
-			Region            string        `json:"region" yaml:"region"`
-			TotalResources    int           `json:"total_resources" yaml:"total_resources"`
-			TaggedResources   int           `json:"tagged_resources" yaml:"tagged_resources"`
-			UntaggedResources int           `json:"untagged_resources" yaml:"untagged_resources"`
-			Resources         []ResourceRow `json:"resources" yaml:"resources"`
-		}
-
-		result := DiscoveryResult{
-			Service:           d.Service,
-			Region:            d.Region,
-			TotalResources:    totalResources,
-			TaggedResources:   resourcesWithTags,
-			UntaggedResources: totalResources - resourcesWithTags,
-			Resources:         resourceRows,
-		}
-
-		// If clipboard flag is set, copy to clipboard
-		if d.Clipboard {
-			if err := output.WriteToClipboard(result); err != nil {
-				return fmt.Errorf("failed to copy resource discovery results to clipboard for service %s in region %s: %w", d.Service, d.Region, err)
-			}
-			logger.Info("✅ Resource discovery results copied to clipboard!")
-			return nil
-		}
-
-		return formatter.Output(result)
+		return formatter.Output(clipboardOutput)
 	}
 
 	// Default table output
