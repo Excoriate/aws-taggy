@@ -2,8 +2,10 @@ package cmd
 
 import (
 	"fmt"
-	"os"
+	"path/filepath"
+	"strings"
 
+	"github.com/Excoriate/aws-taggy/cli/internal/output"
 	"github.com/Excoriate/aws-taggy/pkg/o11y"
 	"github.com/alecthomas/kong"
 )
@@ -30,30 +32,34 @@ func (c *ConfigCmd) BeforeApply(kongCtx *kong.Context) error {
 
 // GenerateCmd represents the command to generate a sample configuration file
 type GenerateCmd struct {
-	Output string `short:"o" help:"Output file path for the generated configuration" default:"aws-taggy-config.yaml"`
+	Output       string `short:"o" help:"Output file path for the generated configuration" default:"aws-taggy-config.yaml"`
+	Overwrite    bool   `short:"f" help:"Force overwrite if the configuration file already exists"`
+	GenerateDocs bool   `short:"d" help:"Generate markdown documentation alongside the configuration file"`
 }
 
 // Run implements the logic for generating a sample configuration file
-func (g *GenerateCmd) Run() error {
-	// TODO: Implement configuration file generation logic
-	fmt.Printf("Generating sample configuration file at: %s\n", g.Output)
-
-	// Example configuration content
-	sampleConfig := `
-# AWS Taggy Configuration
-tag_compliance:
-  required_tags:
-    - Name
-    - Environment
-    - Project
-`
-
-	// Write the sample configuration to the specified output file
-	err := os.WriteFile(g.Output, []byte(sampleConfig), 0o644)
-	if err != nil {
-		return fmt.Errorf("failed to write configuration file: %v", err)
+func (c *GenerateCmd) Run() error {
+	// Ensure the file has a .yaml or .yml extension
+	outputFile := c.Output
+	ext := filepath.Ext(outputFile)
+	if ext == "" {
+		outputFile += ".yaml"
+	} else if ext != ".yaml" && ext != ".yml" {
+		outputFile = strings.TrimSuffix(outputFile, ext) + ".yaml"
 	}
 
-	fmt.Printf("Sample configuration file generated successfully at: %s\n", g.Output)
+	configWriter := output.NewConfigurationWriter()
+	if err := configWriter.WriteConfiguration(outputFile, c.Overwrite); err != nil {
+		return err
+	}
+
+	// Generate documentation if requested
+	if c.GenerateDocs {
+		docWriter := output.NewDocumentationWriter()
+		if err := docWriter.WriteDocumentation(outputFile); err != nil {
+			return fmt.Errorf("failed to generate documentation: %w", err)
+		}
+	}
+
 	return nil
 }
