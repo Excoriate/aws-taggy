@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+
+	"gopkg.in/yaml.v3"
 )
 
 // Formatter defines the interface for output formatting
@@ -21,14 +23,34 @@ func (f *JSONFormatter) Format(data interface{}) (string, error) {
 	var bytes []byte
 	var err error
 
-	if f.Pretty {
-		bytes, err = json.MarshalIndent(data, "", "  ")
-	} else {
-		bytes, err = json.Marshal(data)
-	}
+	// Always use pretty printing by default
+	bytes, err = json.MarshalIndent(data, "", "  ")
 
 	if err != nil {
 		return "", fmt.Errorf("failed to format as JSON: %w", err)
+	}
+
+	return string(bytes), nil
+}
+
+// YAMLFormatter implements Formatter for YAML output
+type YAMLFormatter struct {
+	Pretty bool
+}
+
+// Format formats the data as YAML
+func (f *YAMLFormatter) Format(data interface{}) (string, error) {
+	var bytes []byte
+	var err error
+
+	if f.Pretty {
+		bytes, err = yaml.Marshal(data)
+	} else {
+		bytes, err = yaml.Marshal(data)
+	}
+
+	if err != nil {
+		return "", fmt.Errorf("failed to format as YAML: %w", err)
 	}
 
 	return string(bytes), nil
@@ -68,6 +90,11 @@ func (f *TableFormatter) Format(data interface{}) (string, error) {
 // NewJSONFormatter creates a new JSONFormatter
 func NewJSONFormatter(pretty bool) Formatter {
 	return &JSONFormatter{Pretty: pretty}
+}
+
+// NewYAMLFormatter creates a new YAMLFormatter
+func NewYAMLFormatter(pretty bool) Formatter {
+	return &YAMLFormatter{Pretty: pretty}
 }
 
 // NewTableFormatter creates a new TableFormatter
