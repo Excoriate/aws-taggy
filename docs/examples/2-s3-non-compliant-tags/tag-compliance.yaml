@@ -9,23 +9,48 @@ aws:
       - us-east-1
   batch_size: 50
 
+global:
+  enabled: true
+  tag_criteria:
+    minimum_required_tags: 5
+    max_tags: 8
+    required_tags:
+      - project
+      - environment
+      - owner
+      - data_class
+      - cost_center
+
 resources:
   s3:
     enabled: true
     tag_criteria:
       minimum_required_tags: 5
       max_tags: 8
-
-global:
-  tag_criteria:
-    minimum_required_tags: 5
-    max_tags: 8
+      required_tags:
+        - project
+        - environment
+        - owner
+        - data_class
+        - cost_center
 
 tag_validation:
   prohibited_tags:
     - "temp:"
     - "test:"
     - "random:"
+
+  # Add key validation configuration
+  key_validation:
+    max_length: 128
+    allowed_prefixes:
+      - "project-"
+      - "env-"
+      - "cost-"
+    allowed_suffixes:
+      - "-dev"
+      - "-staging"
+      - "-prod"
 
   key_format_rules:
     - pattern: "^[a-z][a-z0-9_-]*$"
@@ -79,5 +104,10 @@ required_tags:
 
 notifications:
   slack:
+    enabled: true
     channel: "#aws-compliance"
     severity_threshold: warning
+  email:
+    enabled: false
+    recipients: []
+    frequency: daily

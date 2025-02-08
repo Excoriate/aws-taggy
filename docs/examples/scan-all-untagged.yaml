@@ -13,6 +13,7 @@ global:
   enabled: true
   tag_criteria:
     minimum_required_tags: 1  # Explicitly set to 1 to catch ANY untagged resource
+    max_tags: 10
     required_tags:
       - Name  # Minimal tag requirement
     compliance_level: high
@@ -23,6 +24,7 @@ resources:
     enabled: true
     tag_criteria:
       minimum_required_tags: 1
+      max_tags: 10
       required_tags:
         - Name
       compliance_level: high
@@ -31,6 +33,7 @@ resources:
     enabled: true
     tag_criteria:
       minimum_required_tags: 1
+      max_tags: 10
       required_tags:
         - Name
       compliance_level: high
@@ -45,6 +48,15 @@ compliance_levels:
 
 # Minimal tag validation
 tag_validation:
+  # Add key validation configuration
+  key_validation:
+    max_length: 128
+    allowed_prefixes:
+      - "resource-"
+      - "tag-"
+    allowed_suffixes:
+      - "-untagged"
+
   case_sensitivity:
     Name:
       mode: strict

@@ -28,6 +28,7 @@ global:
   enabled: true
   tag_criteria:
     minimum_required_tags: 4  # Strict tagging requirements
+    max_tags: 10
     required_tags:
       - Environment
       - Owner
@@ -43,6 +44,7 @@ resources:
     enabled: true
     tag_criteria:
       minimum_required_tags: 4  # Enforce comprehensive tagging
+      max_tags: 10
       required_tags:
         - Environment
         - Owner
@@ -81,6 +83,18 @@ compliance_levels:
 
 # Strict tag validation rules for S3 buckets
 tag_validation:
+  # Key validation configuration
+  key_validation:
+    max_length: 128
+    allowed_prefixes:
+      - "project-"
+      - "env-"
+      - "cost-"
+    allowed_suffixes:
+      - "-prod"
+      - "-dev"
+      - "-test"
+
   allowed_values:
     Environment:
       - production

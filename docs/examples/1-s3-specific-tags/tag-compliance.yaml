@@ -2,7 +2,22 @@ version: "1.0"
 
 # Global configuration for tag compliance
 global:
-  default_compliance_level: standard
+  enabled: true
+  tag_criteria:
+    minimum_required_tags: 5
+    max_tags: 10
+    required_tags:
+      - Environment
+      - Owner
+      - Project
+      - DataClassification
+      - CostCenter
+
+# AWS Configuration
+aws:
+  regions:
+    mode: all
+    list: []
 
 # Resource-specific configurations
 resources:
@@ -10,6 +25,7 @@ resources:
     enabled: true
     tag_criteria:
       minimum_required_tags: 5
+      max_tags: 10
       required_tags:
         - Environment
         - Owner
@@ -51,6 +67,18 @@ tag_validation:
     - "temp:"
     - "test:"
 
+  # Key validation configuration
+  key_validation:
+    max_length: 128
+    allowed_prefixes:
+      - "project-"
+      - "env-"
+      - "cost-"
+    allowed_suffixes:
+      - "-prod"
+      - "-dev"
+      - "-test"
+
   # Tag key format rules
   key_format_rules:
     - pattern: "^[A-Z][a-zA-Z0-9]*$"
@@ -70,6 +98,7 @@ tag_validation:
       - "null"
       - "none"
       - "n/a"
+    allowed_characters: "a-zA-Z0-9._-"
 
   # Length constraints
   length_rules:
@@ -124,3 +153,5 @@ notifications:
       standard: "compliance-reports"
   email:
     enabled: false
+    recipients: []
+    frequency: daily

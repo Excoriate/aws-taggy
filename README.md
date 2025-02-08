@@ -33,6 +33,9 @@ Using [Homebrew](https://brew.sh/):
 
 ```bash
 brew tap Excoriate/aws-taggy
+# or also
+brew tap Excoriate/homebrew-tap https://github.com/Excoriate/homebrew-tap.git
+# And then install the cli
 brew install aws-taggy
 ```
 
