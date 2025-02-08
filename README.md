@@ -80,6 +80,20 @@ brew install aws-taggy
 
 For more details, explore the documentation in each directory.
 
+## 📦 Quick Guide
+
+### Resource Discovery
+
+`aws-taggy` allows you (depending on your credentials) to discover resources in your AWS account.
+
+```bash
+aws-taggy discover <options>
+# discover all the S3 buckets across your account.
+aws-taggy discover --service s3
+# discover all the S3 buckets, in a given region, and copy the result as a valid YAML in your clipboard.
+aws-taggy discover --service s3 --region us-east-1 --clipboard
+```
+
 ## 📄 License
 
 [MIT License](./LICENSE)

@@ -11,7 +11,7 @@ This guide provides detailed instructions on how to customize the tag compliance
 #### 1. **Version**
 
 - **Purpose**: Tracks the schema version of the tag compliance configuration.
-- **Example**: 
+- **Example**:
   ```yaml
   version: "1.0"
   ```
@@ -30,7 +30,7 @@ This guide provides detailed instructions on how to customize the tag compliance
     ```hcl
     resource "aws_s3_bucket" "example" {
       bucket = "my-bucket-in-us-east-1"
-      
+
       tags = {
         Region = "us-east-1"
         # Ensures the tag matches the region configuration
@@ -60,16 +60,16 @@ This guide provides detailed instructions on how to customize the tag compliance
     resource "aws_instance" "example" {
       ami           = "ami-0c55b159cbfafe1f0"
       instance_type = "t2.micro"
-      
+
       tags = {
         # Meets minimum required tags
         Environment = "production"
         Owner       = "cloud-team@company.com"
         Project     = "infrastructure-core"
-        
+
         # Avoids forbidden tags
         # No "Temporary" or "Test" tags allowed
-        
+
         # Matches specific tag requirements
         ComplianceLevel = "high"
       }
@@ -83,14 +83,14 @@ This guide provides detailed instructions on how to customize the tag compliance
     ```hcl
     resource "aws_s3_bucket" "compliance_bucket" {
       bucket = "my-compliant-bucket"
-      
+
       tags = {
         # Meets S3-specific tag requirements
         DataClassification = "confidential"
         BackupPolicy       = "daily-backup"
         Environment        = "production"
         Owner              = "data-team@company.com"
-        
+
         # Ensures encryption is required
         EncryptionRequired = "true"
       }
@@ -103,12 +103,12 @@ This guide provides detailed instructions on how to customize the tag compliance
     resource "aws_instance" "application_server" {
       ami           = "ami-0c55b159cbfafe1f0"
       instance_type = "t2.medium"
-      
+
       tags = {
         Application  = "web-backend"
         PatchGroup   = "monthly-patch"
         Environment  = "staging"
-        
+
         # Enables auto-stop for cost management
         AutoStop     = "enabled"
       }
@@ -123,7 +123,7 @@ This guide provides detailed instructions on how to customize the tag compliance
     resource "aws_eks_cluster" "high_security_cluster" {
       name     = "production-cluster"
       role_arn = aws_iam_role.eks_cluster.arn
-      
+
       tags = {
         # High compliance level tags
         SecurityLevel        = "high"
@@ -131,7 +131,7 @@ This guide provides detailed instructions on how to customize the tag compliance
         Backup               = "weekly"
         Owner                = "security-team@company.com"
         CostCenter           = "IT-0123"
-        
+
         # Additional security validations
         SecurityApproved     = "true"
         MonitoringEnabled    = "true"
@@ -146,12 +146,12 @@ This guide provides detailed instructions on how to customize the tag compliance
     resource "aws_rds_cluster" "standard_database" {
       cluster_identifier = "standard-db-cluster"
       engine             = "aurora-postgresql"
-      
+
       tags = {
         Owner       = "database-team@company.com"
         Project     = "customer-portal"
         Environment = "development"
-        
+
         # Standard monitoring requirement
         MonitoringEnabled = "true"
         ComplianceLevel   = "standard"
@@ -165,17 +165,17 @@ This guide provides detailed instructions on how to customize the tag compliance
   ```hcl
   resource "aws_vpc" "compliant_network" {
     cidr_block = "10.0.0.0/16"
-    
+
     tags = {
       # Follows key format rules (lowercase, alphanumeric)
       network_tier = "private"
-      
+
       # Matches pattern rules
       CostCenter  = "IT-0123"  # Matches ^[A-Z]{2}-[0-9]{4}$ pattern
-      
+
       # Follows case sensitivity rules
       environment = "production"  # Lowercase
-      
+
       # Avoids prohibited prefixes
       project_name = "core-infra"  # Not using "aws:" or "internal:" prefixes
     }
@@ -188,7 +188,7 @@ This guide provides detailed instructions on how to customize the tag compliance
   ```hcl
   resource "aws_cloudwatch_log_group" "compliance_logs" {
     name = "/aws/taggy/compliance-logs"
-    
+
     tags = {
       NotificationGroup = "compliance-alerts"
       AlertRecipient    = "cloud-team@company.com"
@@ -219,7 +219,7 @@ locals {
 
 resource "aws_s3_bucket" "example" {
   bucket = "my-compliant-bucket"
-  
+
   tags = merge(
     local.common_tags,
     {
@@ -231,4 +231,4 @@ resource "aws_s3_bucket" "example" {
 
 This guide provides comprehensive Terraform tag examples that align with the AWS Taggy tag compliance configuration. By following these examples, you can ensure your infrastructure-as-code meets your organization's tagging standards.
 
-If you have any specific questions or need further examples, feel free to ask! 
+If you have any specific questions or need further examples, feel free to ask!
