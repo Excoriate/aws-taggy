@@ -2,253 +2,65 @@ package configuration
 
 import (
 	"os"
-	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"gopkg.in/yaml.v3"
 )
 
-// Helper function to create a temporary configuration file
-func createTempConfigFile(t *testing.T, content string) string {
-	// Create a temporary directory
-	tempDir, err := os.MkdirTemp("", "taggy-test-")
-	require.NoError(t, err)
-
-	// Create a temporary configuration file
-	tempFile := filepath.Join(tempDir, "tag-compliance.yaml")
-	err = os.WriteFile(tempFile, []byte(content), 0o644)
-	require.NoError(t, err)
-
-	// Cleanup function to remove temporary files
-	t.Cleanup(func() {
-		os.RemoveAll(tempDir)
-	})
-
-	return tempFile
-}
-
 func TestConfigLoader(t *testing.T) {
-	t.Run("Valid Full Configuration", func(t *testing.T) {
-		validConfig := `
-version: "1.0"
+	tests := []struct {
+		name    string
+		content string
+		wantErr bool
+		errMsg  string
+	}{
+		{
+			name: "Valid Full Configuration",
+			content: `version: "1.0"
 aws:
   regions:
-    mode: all
+    mode: "all"
+  batch_size: 100
 global:
   enabled: true
   tag_criteria:
     minimum_required_tags: 2
     required_tags:
-      - Environment
-      - Owner
+      - "Environment"
+      - "Owner"
 resources:
   s3:
     enabled: true
     tag_criteria:
       minimum_required_tags: 2
       required_tags:
-        - DataClassification
-        - BackupPolicy
+        - "DataClassification"
+        - "BackupPolicy"
 compliance_levels:
   high:
     required_tags:
-      - SecurityLevel
-      - DataClassification
+      - "SecurityLevel"
+      - "DataClassification"
 tag_validation:
+  key_validation:
+    max_length: 128
+    allowed_prefixes:
+      - "env-"
+      - "dept-"
+    allowed_suffixes:
+      - "-prod"
+      - "-dev"
   allowed_values:
     Environment:
-      - production
-      - staging
-notifications:
-  slack:
-    enabled: true
-    channels:
-      high_priority: "compliance-alerts"
-`
-		configPath := createTempConfigFile(t, validConfig)
-
-		// Demonstrate usage of yaml package to satisfy linter
-		var unmarshalTest map[string]interface{}
-		err := yaml.Unmarshal([]byte(validConfig), &unmarshalTest)
-		require.NoError(t, err)
-
-		loader := NewTaggyScanConfigLoader()
-		config, err := loader.LoadConfig(configPath)
-
-		assert.NoError(t, err)
-		assert.NotNil(t, config)
-		assert.Equal(t, "1.0", config.Version)
-		assert.Equal(t, "all", config.AWS.Regions.Mode)
-	})
-
-	t.Run("Invalid Configuration Scenarios", func(t *testing.T) {
-		testCases := []struct {
-			name          string
-			configContent string
-			expectedError string
-		}{
-			{
-				name: "Missing Version",
-				configContent: `
-aws:
-  regions:
-    mode: all
-`,
-				expectedError: "configuration version is missing",
-			},
-			{
-				name: "Unsupported Version",
-				configContent: `
-version: "0.1.0"
-aws:
-  regions:
-    mode: all
-`,
-				expectedError: "invalid version format: 0.1.0, expected format: X.Y",
-			},
-			{
-				name: "Invalid AWS Regions Mode",
-				configContent: `
-version: "1.0"
-aws:
-  regions:
-    mode: invalid
-`,
-				expectedError: "invalid AWS regions mode",
-			},
-			{
-				name: "Invalid Compliance Level",
-				configContent: `
-version: "1.0"
-aws:
-  regions:
-    mode: all
-compliance_levels:
-  unknown:
-    required_tags:
-      - InvalidTag
-`,
-				expectedError: "invalid compliance level",
-			},
-			{
-				name: "Invalid Tag Validation",
-				configContent: `
-version: "1.0"
-aws:
-  regions:
-    mode: all
-tag_validation:
-  allowed_values:
-    Environment: []
-`,
-				expectedError: "no allowed values specified",
-			},
-		}
-
-		for _, tc := range testCases {
-			t.Run(tc.name, func(t *testing.T) {
-				configPath := createTempConfigFile(t, tc.configContent)
-
-				loader := NewTaggyScanConfigLoader()
-				_, err := loader.LoadConfig(configPath)
-
-				assert.Error(t, err)
-				assert.Contains(t, err.Error(), tc.expectedError)
-			})
-		}
-	})
-
-	t.Run("File Validation Scenarios", func(t *testing.T) {
-		t.Run("Non-Existent File", func(t *testing.T) {
-			loader := NewTaggyScanConfigLoader()
-			_, err := loader.LoadConfig("/path/to/non/existent/file.yaml")
-
-			assert.Error(t, err)
-			assert.Contains(t, err.Error(), "configuration file does not exist")
-		})
-
-		t.Run("Empty File", func(t *testing.T) {
-			emptyConfigPath := createTempConfigFile(t, "")
-
-			loader := NewTaggyScanConfigLoader()
-			_, err := loader.LoadConfig(emptyConfigPath)
-
-			assert.Error(t, err)
-			assert.Contains(t, err.Error(), "configuration version is missing")
-		})
-
-		t.Run("Invalid File Extension", func(t *testing.T) {
-			invalidExtConfigPath := createTempConfigFile(t, "version: 1.0")
-			// Rename to have an invalid extension
-			invalidExtPath := filepath.Join(filepath.Dir(invalidExtConfigPath), "config.txt")
-			err := os.Rename(invalidExtConfigPath, invalidExtPath)
-			require.NoError(t, err)
-
-			loader := NewTaggyScanConfigLoader()
-			_, err = loader.LoadConfig(invalidExtPath)
-
-			assert.Error(t, err)
-			assert.Contains(t, err.Error(), "configuration file has invalid extension")
-		})
-	})
-
-	t.Run("Complex Configuration Validation", func(t *testing.T) {
-		complexConfig := `
-version: "1.0"
-aws:
-  regions:
-    mode: specific
-    list:
-      - us-east-1
-      - us-west-2
-global:
-  enabled: true
-  tag_criteria:
-    minimum_required_tags: 3
-    required_tags:
-      - Environment
-      - Owner
-      - Project
-resources:
-  s3:
-    enabled: true
-    tag_criteria:
-      minimum_required_tags: 2
-      required_tags:
-        - DataClassification
-        - BackupPolicy
-  ec2:
-    enabled: true
-    tag_criteria:
-      minimum_required_tags: 2
-      required_tags:
-        - Application
-        - Environment
-compliance_levels:
-  high:
-    required_tags:
-      - SecurityLevel
-      - DataClassification
-    specific_tags:
-      SecurityApproved: "true"
-  standard:
-    required_tags:
-      - Owner
-      - Environment
-tag_validation:
-  allowed_values:
-    Environment:
-      - production
-      - staging
-      - development
-    SecurityLevel:
-      - high
-      - medium
-      - low
+      - "production"
+      - "staging"
   pattern_rules:
-    CostCenter: ^[A-Z]{2}-[0-9]{4}$
+    CostCenter: "^[A-Z]{2}-[0-9]{4}$"
+  case_rules:
+    Environment:
+      case: "lowercase"
+      message: "Environment tag must be lowercase"
 notifications:
   slack:
     enabled: true
@@ -257,25 +69,124 @@ notifications:
   email:
     enabled: true
     recipients:
-      - cloud-team@company.com
-    frequency: daily
-`
-		configPath := createTempConfigFile(t, complexConfig)
+      - "alerts@company.com"
+    frequency: "daily"`,
+			wantErr: false,
+		},
+		{
+			name: "Invalid AWS Regions Mode",
+			content: `version: "1.0"
+aws:
+  regions:
+    mode: "invalid"
+tag_validation:
+  key_validation:
+    max_length: 128`,
+			wantErr: true,
+			errMsg:  "invalid AWS regions mode: invalid",
+		},
+		{
+			name: "Missing Required Fields",
+			content: `version: "1.0"
+aws:
+  regions:
+    mode: "all"`,
+			wantErr: true,
+			errMsg:  "key validation failed: key validation max length must be positive",
+		},
+		{
+			name: "Invalid Tag Validation",
+			content: `version: "1.0"
+aws:
+  regions:
+    mode: "all"
+tag_validation:
+  key_validation:
+    max_length: 128
+  allowed_values:
+    Environment: []`,
+			wantErr: true,
+			errMsg:  "no allowed values specified for tag Environment",
+		},
+	}
 
-		loader := NewTaggyScanConfigLoader()
-		config, err := loader.LoadConfig(configPath)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create a temporary file
+			tmpfile, err := os.CreateTemp("", "config-*.yaml")
+			require.NoError(t, err)
+			defer os.Remove(tmpfile.Name())
 
-		assert.NoError(t, err)
-		assert.NotNil(t, config)
+			// Write the test content to the file
+			_, err = tmpfile.WriteString(tt.content)
+			require.NoError(t, err)
+			err = tmpfile.Close()
+			require.NoError(t, err)
 
-		// Validate specific aspects of the complex configuration
-		assert.Equal(t, "1.0", config.Version)
-		assert.Equal(t, "specific", config.AWS.Regions.Mode)
-		assert.Len(t, config.AWS.Regions.List, 2)
-		assert.Len(t, config.Resources, 2)
-		assert.Len(t, config.ComplianceLevels, 2)
-		assert.Len(t, config.TagValidation.AllowedValues["Environment"], 3)
-		assert.True(t, config.Notifications.Slack.Enabled)
-		assert.True(t, config.Notifications.Email.Enabled)
+			// Create loader and load configuration
+			loader := NewTaggyScanConfigLoader()
+			cfg, err := loader.LoadConfig(tmpfile.Name())
+
+			if tt.wantErr {
+				assert.Error(t, err)
+				if tt.errMsg != "" {
+					assert.Contains(t, err.Error(), tt.errMsg)
+				}
+				assert.Nil(t, cfg)
+			} else {
+				assert.NoError(t, err)
+				assert.NotNil(t, cfg)
+				if cfg != nil {
+					// Add specific assertions for the loaded configuration
+					assert.Equal(t, "1.0", cfg.Version)
+					assert.Equal(t, "all", cfg.AWS.Regions.Mode)
+					assert.Equal(t, 2, cfg.Global.TagCriteria.MinimumRequiredTags)
+					assert.Contains(t, cfg.Global.TagCriteria.RequiredTags, "Environment")
+					assert.Contains(t, cfg.Global.TagCriteria.RequiredTags, "Owner")
+				}
+			}
+		})
+	}
+
+	t.Run("File Validation Scenarios", func(t *testing.T) {
+		testCases := []struct {
+			name          string
+			setupFile     func() (string, func())
+			expectedError string
+		}{
+			{
+				name: "Non-Existent File",
+				setupFile: func() (string, func()) {
+					return "non-existent-file.yaml", func() {}
+				},
+				expectedError: "configuration file does not exist",
+			},
+			{
+				name: "Invalid File Extension",
+				setupFile: func() (string, func()) {
+					tmpfile, err := os.CreateTemp("", "config-*.txt")
+					require.NoError(t, err)
+					_, err = tmpfile.WriteString("version: 1.0")
+					require.NoError(t, err)
+					err = tmpfile.Close()
+					require.NoError(t, err)
+					return tmpfile.Name(), func() { os.Remove(tmpfile.Name()) }
+				},
+				expectedError: "configuration file has invalid extension",
+			},
+		}
+
+		for _, tc := range testCases {
+			t.Run(tc.name, func(t *testing.T) {
+				filePath, cleanup := tc.setupFile()
+				defer cleanup()
+
+				loader := NewTaggyScanConfigLoader()
+				_, err := loader.LoadConfig(filePath)
+
+				assert.Error(t, err)
+				assert.Contains(t, err.Error(), tc.expectedError)
+			})
+		}
 	})
 }

@@ -38,6 +38,11 @@ func createTestConfig() *TaggyScanConfig {
 			},
 		},
 		TagValidation: TagValidation{
+			KeyValidation: KeyValidation{
+				MaxLength:       128,
+				AllowedPrefixes: []string{"env-", "dept-"},
+				AllowedSuffixes: []string{"-prod", "-dev"},
+			},
 			AllowedValues: map[string][]string{
 				"Environment": {"production", "staging"},
 			},

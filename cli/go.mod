@@ -1,16 +1,18 @@
 module github.com/Excoriate/aws-taggy/cli
 
-go 1.23.4
+go 1.23
 
 require (
 	github.com/Excoriate/aws-taggy v0.0.0
-	github.com/alecthomas/kong v1.7.0
+	github.com/alecthomas/kong v0.8.1
 	github.com/atotto/clipboard v0.1.4
 	github.com/charmbracelet/bubbles v0.20.0
 	github.com/charmbracelet/bubbletea v1.2.4
 	github.com/charmbracelet/lipgloss v1.0.0
 	github.com/common-nighthawk/go-figure v0.0.0-20210622060536-734e95fb86be
-	github.com/stretchr/testify v1.10.0
+	github.com/fatih/color v1.16.0
+	github.com/olekukonko/tablewriter v0.0.5
+	github.com/stretchr/testify v1.8.4
 	gopkg.in/yaml.v3 v3.0.1
 )
 

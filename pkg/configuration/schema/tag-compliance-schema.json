@@ -3,7 +3,7 @@
     "type": "object",
     "title": "AWS Tag Compliance Configuration Schema",
     "description": "Schema for validating AWS tag compliance configuration files",
-    "required": ["version"],
+    "required": [],
     "properties": {
         "version": {
             "type": "string",

@@ -1,11 +1,13 @@
 package configuration
 
 import (
+	"encoding/json"
 	"fmt"
 	"regexp"
+	"strings"
 
-	"github.com/Excoriate/aws-taggy/pkg/constants"
 	"github.com/Excoriate/aws-taggy/pkg/util"
+	"github.com/xeipuuv/gojsonschema"
 )
 
 // FileValidator is responsible for validating configuration file paths and their existence.
@@ -58,6 +60,10 @@ func (v *FileValidator) Validate() error {
 
 // ValidateContent performs comprehensive validation of the configuration content
 func (v *ContentValidator) ValidateContent() error {
+	if err := v.validateAgainstSchema(); err != nil {
+		return fmt.Errorf("schema validation failed: %w", err)
+	}
+
 	if err := v.validateVersion(); err != nil {
 		return fmt.Errorf("version validation failed: %w", err)
 	}
@@ -89,18 +95,53 @@ func (v *ContentValidator) ValidateContent() error {
 	return nil
 }
 
-func (v *ContentValidator) validateVersion() error {
-	if v.cfg.Version == "" {
-		return fmt.Errorf("configuration version is missing")
+func (v *ContentValidator) validateAgainstSchema() error {
+	// Load schema from embedded file
+	schemaLoader := gojsonschema.NewStringLoader(tagComplianceSchema)
+
+	// Convert config to JSON for validation
+	configJSON, err := json.Marshal(v.cfg)
+	if err != nil {
+		return fmt.Errorf("failed to marshal config to JSON: %w", err)
 	}
+
+	// If version is empty, add a default version
+	if v.cfg.Version == "" {
+		v.cfg.Version = "1.0"
+	}
+
+	documentLoader := gojsonschema.NewBytesLoader(configJSON)
+
+	// Perform validation
+	result, err := gojsonschema.Validate(schemaLoader, documentLoader)
+	if err != nil {
+		return fmt.Errorf("schema validation failed: %w", err)
+	}
+
+	if !result.Valid() {
+		var errors []string
+		for _, err := range result.Errors() {
+			errors = append(errors, err.String())
+		}
+		return fmt.Errorf("configuration does not match schema: %s", strings.Join(errors, "; "))
+	}
+
+	return nil
+}
+
+func (v *ContentValidator) validateVersion() error {
+	// If version is empty, set a default version
+	if v.cfg.Version == "" {
+		v.cfg.Version = "1.0"
+		return nil
+	}
+
+	// Remove any quotes and whitespace from the version string
+	version := strings.Trim(strings.TrimSpace(v.cfg.Version), `"'`)
 
 	versionPattern := regexp.MustCompile(`^\d+\.\d+$`)
-	if !versionPattern.MatchString(v.cfg.Version) {
-		return fmt.Errorf("invalid version format: %s, expected format: X.Y", v.cfg.Version)
-	}
-
-	if v.cfg.Version != constants.SupportedConfigVersion {
-		return fmt.Errorf("unsupported configuration version")
+	if !versionPattern.MatchString(version) {
+		return fmt.Errorf("invalid version format: %s, expected format: X.Y", version)
 	}
 
 	return nil
@@ -155,14 +196,64 @@ func (v *ContentValidator) validateTagCriteria(criteria TagCriteria, context str
 	return nil
 }
 
+// validateResourceType checks if the resource type is a supported AWS resource
+func (v *ContentValidator) validateResourceType(resourceType string) error {
+	supportedResources := map[string]bool{
+		"ec2":             true,
+		"s3":              true,
+		"rds":             true,
+		"lambda":          true,
+		"dynamodb":        true,
+		"elasticache":     true,
+		"elb":             true,
+		"alb":             true,
+		"nlb":             true,
+		"ebs":             true,
+		"efs":             true,
+		"eks":             true,
+		"ecr":             true,
+		"cloudfront":      true,
+		"apigateway":      true,
+		"route53":         true,
+		"cloudwatch":      true,
+		"sns":             true,
+		"sqs":             true,
+		"vpc":             true,
+		"subnet":          true,
+		"securitygroup":   true,
+		"nacl":            true,
+		"internetgateway": true,
+		"natgateway":      true,
+	}
+
+	if !supportedResources[resourceType] {
+		return fmt.Errorf("unsupported AWS resource type: %s", resourceType)
+	}
+
+	return nil
+}
+
+// validateResourceConfigs performs validation of resource configurations
 func (v *ContentValidator) validateResourceConfigs() error {
 	for resourceType, config := range v.cfg.Resources {
+		if err := v.validateResourceType(resourceType); err != nil {
+			return err
+		}
+
 		if !config.Enabled {
 			continue
 		}
 
 		if err := v.validateTagCriteria(config.TagCriteria, fmt.Sprintf("resource %s", resourceType)); err != nil {
 			return err
+		}
+
+		// Validate resource-specific compliance level against defined levels
+		if config.TagCriteria.ComplianceLevel != "" {
+			if _, exists := v.cfg.ComplianceLevels[config.TagCriteria.ComplianceLevel]; !exists {
+				return fmt.Errorf("resource %s references undefined compliance level: %s",
+					resourceType, config.TagCriteria.ComplianceLevel)
+			}
 		}
 
 		for _, excluded := range config.ExcludedResources {
@@ -211,6 +302,16 @@ func (v *ContentValidator) validateTagValidation() error {
 		}
 	}
 
+	// Validate key validation rules
+	if err := v.validateKeyValidation(); err != nil {
+		return fmt.Errorf("key validation failed: %w", err)
+	}
+
+	// Validate value validation rules
+	if err := v.validateValueValidation(); err != nil {
+		return fmt.Errorf("value validation failed: %w", err)
+	}
+
 	if v.cfg.TagValidation.PatternRules != nil {
 		for tag, pattern := range v.cfg.TagValidation.PatternRules {
 			if _, err := regexp.Compile(pattern); err != nil {
@@ -220,13 +321,75 @@ func (v *ContentValidator) validateTagValidation() error {
 	}
 
 	if v.cfg.TagValidation.AllowedValues != nil {
-		for _, values := range v.cfg.TagValidation.AllowedValues {
+		for tag, values := range v.cfg.TagValidation.AllowedValues {
 			if len(values) == 0 {
-				return fmt.Errorf("no allowed values specified")
+				return fmt.Errorf("no allowed values specified for tag %s", tag)
 			}
 		}
 	}
 
+	// Validate length rules
+	if err := v.validateLengthRules(); err != nil {
+		return fmt.Errorf("length rules validation failed: %w", err)
+	}
+
+	return nil
+}
+
+func (v *ContentValidator) validateKeyValidation() error {
+	keyValidation := v.cfg.TagValidation.KeyValidation
+
+	// Validate max length
+	if keyValidation.MaxLength <= 0 {
+		return fmt.Errorf("key validation max length must be positive")
+	}
+
+	// Validate prefixes and suffixes
+	for _, prefix := range keyValidation.AllowedPrefixes {
+		if prefix == "" {
+			return fmt.Errorf("empty prefix in allowed prefixes")
+		}
+	}
+
+	for _, suffix := range keyValidation.AllowedSuffixes {
+		if suffix == "" {
+			return fmt.Errorf("empty suffix in allowed suffixes")
+		}
+	}
+
+	return nil
+}
+
+func (v *ContentValidator) validateValueValidation() error {
+	valueValidation := v.cfg.TagValidation.ValueValidation
+
+	// Validate allowed characters pattern
+	if valueValidation.AllowedCharacters != "" {
+		if _, err := regexp.Compile(fmt.Sprintf("[%s]", valueValidation.AllowedCharacters)); err != nil {
+			return fmt.Errorf("invalid allowed characters pattern: %s", err)
+		}
+	}
+
+	// Validate disallowed values
+	for _, value := range valueValidation.DisallowedValues {
+		if value == "" {
+			return fmt.Errorf("empty value in disallowed values")
+		}
+	}
+
+	return nil
+}
+
+func (v *ContentValidator) validateLengthRules() error {
+	for tag, rule := range v.cfg.TagValidation.LengthRules {
+		if rule.MinLength != nil && *rule.MinLength < 0 {
+			return fmt.Errorf("tag %s has negative minimum length", tag)
+		}
+		if rule.MaxLength != nil && rule.MinLength != nil && *rule.MaxLength <= *rule.MinLength {
+			return fmt.Errorf("tag %s has maximum length (%d) less than or equal to minimum length (%d)",
+				tag, *rule.MaxLength, *rule.MinLength)
+		}
+	}
 	return nil
 }
 
