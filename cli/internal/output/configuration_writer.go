@@ -78,7 +78,7 @@ func (w *ConfigurationWriter) WriteConfiguration(file string, overwrite bool) er
 	}
 
 	// Write the YAML to file
-	if err := os.WriteFile(file, yamlData, 0600); err != nil {
+	if err := os.WriteFile(file, yamlData, 0o600); err != nil {
 		return fmt.Errorf("failed to write configuration file: %w", err)
 	}
 
@@ -116,7 +116,7 @@ func (w *DocumentationWriter) WriteDocumentation(configFile string) error {
 	content := configuration.DefaultDocumentation()
 
 	// Write the documentation to file
-	if err := os.WriteFile(docFile, []byte(content), 0600); err != nil {
+	if err := os.WriteFile(docFile, []byte(content), 0o600); err != nil {
 		return fmt.Errorf("failed to write documentation file: %w", err)
 	}
 

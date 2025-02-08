@@ -96,8 +96,8 @@ func (v *ContentValidator) ValidateContent() error {
 }
 
 func (v *ContentValidator) validateAgainstSchema() error {
-	// Load schema
-	schemaLoader := gojsonschema.NewReferenceLoader("file://pkg/configuration/schema/tag-compliance-schema.json")
+	// Load schema from embedded file
+	schemaLoader := gojsonschema.NewStringLoader(tagComplianceSchema)
 
 	// Convert config to JSON for validation
 	configJSON, err := json.Marshal(v.cfg)

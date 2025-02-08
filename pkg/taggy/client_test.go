@@ -44,6 +44,25 @@ global:
 resources:
   ec2:
     enabled: true
+tag_validation:
+  key_validation:
+    max_length: 128
+    allowed_prefixes:
+      - "env-"
+      - "dept-"
+    allowed_suffixes:
+      - "-prod"
+      - "-dev"
+  allowed_values:
+    Environment:
+      - "production"
+      - "staging"
+  pattern_rules:
+    CostCenter: "^[A-Z]{2}-[0-9]{4}$"
+  case_rules:
+    Environment:
+      case: "lowercase"
+      message: "Environment tag must be lowercase"
 `
 	validConfigPath := createTempConfigFile(t, validConfigContent)
 
