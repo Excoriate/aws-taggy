@@ -90,5 +90,56 @@ func DefaultConfiguration() *TaggyScanConfig {
 				},
 			},
 		},
+		ComplianceLevels: map[string]ComplianceLevel{
+			"high": {
+				RequiredTags: []string{
+					"DataClassification",
+					"BackupPolicy",
+					"Environment",
+					"Owner",
+				},
+				SpecificTags: map[string]string{
+					"EncryptionRequired": "true",
+				},
+			},
+			"standard": {
+				RequiredTags: []string{
+					"Application",
+					"PatchGroup",
+					"Environment",
+				},
+				SpecificTags: map[string]string{
+					"AutoStop": "enabled",
+				},
+			},
+		},
+		TagValidation: TagValidation{
+			KeyValidation: KeyValidation{
+				AllowedPrefixes: []string{"project-", "env-", "cost-"},
+				AllowedSuffixes: []string{"-prod", "-dev", "-test"},
+				MaxLength:       128,
+			},
+			ProhibitedTags: []string{"aws:", "internal:", "temp:", "test:"},
+			KeyFormatRules: []KeyFormatRule{
+				{
+					Pattern: "^[a-z][a-z0-9_-]*$",
+					Message: "Tag keys must start with lowercase letter and contain only letters, numbers, underscores, and hyphens",
+				},
+			},
+			AllowedValues: map[string][]string{
+				"Environment":        {"production", "staging", "development", "sandbox"},
+				"DataClassification": {"public", "private", "confidential", "restricted"},
+			},
+			CaseRules: map[string]CaseRule{
+				"Environment": {
+					Case:    CaseLowercase,
+					Message: "Environment tag must be lowercase",
+				},
+			},
+			ValueValidation: ValueValidation{
+				AllowedCharacters: "a-zA-Z0-9._-",
+				DisallowedValues:  []string{"undefined", "null", "none", "n/a"},
+			},
+		},
 	}
 }
