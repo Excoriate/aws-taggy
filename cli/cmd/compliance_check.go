@@ -18,7 +18,7 @@ import (
 // CheckCmd represents the compliance check command
 type CheckCmd struct {
 	Config     string `help:"Path to the tag compliance configuration file" required:"true"`
-	Output     string `help:"Output format (table|json|yaml)" default:"table" enum:"table,json,yaml"`
+	Output     string `help:"Output format (table|json|yaml)" default:"table" enum:"table,json,yaml,TABLE,JSON,YAML"`
 	Table      bool   `help:"Display detailed information in tables" default:"false"`
 	Detailed   bool   `help:"Show detailed compliance results for each resource" default:"false"`
 	Clipboard  bool   `help:"Copy output to clipboard" default:"false"`

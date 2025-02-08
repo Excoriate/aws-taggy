@@ -22,7 +22,7 @@ type QueryCmd struct {
 type TagsCmd struct {
 	ARN       string `help:"ARN of the resource to query tags for" required:"true"`
 	Service   string `help:"AWS service type (e.g., s3, ec2)" required:"true"`
-	Output    string `help:"Output format (table|json|yaml)" default:"table" enum:"table,json,yaml"`
+	Output    string `help:"Output format (table|json|yaml)" default:"table" enum:"table,json,yaml,TABLE,JSON,YAML"`
 	Clipboard bool   `help:"Copy output to clipboard" default:"false"`
 }
 
@@ -30,7 +30,7 @@ type TagsCmd struct {
 type InfoCmd struct {
 	ARN       string `help:"ARN of the resource to query information for" required:"true"`
 	Service   string `help:"AWS service type (e.g., s3, ec2)" required:"true"`
-	Output    string `help:"Output format (table|json|yaml)" default:"table" enum:"table,json,yaml"`
+	Output    string `help:"Output format (table|json|yaml)" default:"table" enum:"table,json,yaml,TABLE,JSON,YAML"`
 	Clipboard bool   `help:"Copy output to clipboard" default:"false"`
 }
 
