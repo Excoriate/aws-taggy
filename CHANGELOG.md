@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.5.0](https://github.com/Excoriate/aws-taggy/compare/v1.4.0...v1.5.0) (2025-02-08)
+
+
+### Features
+
+* Improve tag compliance documentation with additional examples ([#17](https://github.com/Excoriate/aws-taggy/issues/17)) ([fbaef0c](https://github.com/Excoriate/aws-taggy/commit/fbaef0c0d31cb5be761ff00950b87f67f27f75f0))
+
 ## [1.4.0](https://github.com/Excoriate/aws-taggy/compare/v1.3.0...v1.4.0) (2025-02-04)
 
 
