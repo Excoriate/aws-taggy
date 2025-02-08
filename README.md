@@ -80,6 +80,66 @@ brew install aws-taggy
 
 For more details, explore the documentation in each directory.
 
+## 📦 Quick Guide
+
+### Resource Discovery
+
+*AWS Taggy* allows you (depending on your credentials) to discover resources in your AWS account.
+
+```bash
+aws-taggy discover <options>
+# discover all the S3 buckets across your account.
+aws-taggy discover --service s3
+# discover all the S3 buckets, in a given region, and copy the result as a valid YAML in your clipboard.
+aws-taggy discover --service s3 --region us-east-1 --clipboard
+```
+
+> NOTE: If you need to output a file in `json`, `yaml` or directly into your `clipboard`, you can use the `--output` flag.
+
+```bash
+aws-taggy discover --service s3 --region us-east-1 --output yaml --clipboard
+```
+
+### Query Tags on existing resources
+
+*AWS Taggy* allows you to query tags on existing resources. You can use a combination of the `discover` commands, to get the resource's ARN, and then use the `query` command to get the tags.
+
+```bash
+aws-taggy query tags --service=s3 --arn arn:aws:s3:::contactservice-microserv-serverlessdeploymentbuck-1bhyuu --clipboard
+```
+
+### Create a new tag compliance configuration file
+
+*AWS Taggy* allows you to create a new tag compliance configuration file, that you can customize to your needs. See this [link](./docs/tag-compliance.yaml) for more details, and this [guide](./docs/user-guide/how-to-configure-tag-compliance.md) to learn how to configure, and this [guide](./docs/how-it-works/compliance-check-flow.md) to learn how the compliance check works.
+
+```bash
+# Create a file in the current directory.
+aws-taggy config generate --output .aws-taggy-tag-compliance.yaml
+```
+
+The file, when created, can easily be customized to your needs. If so, you can also use aws-taggy to validate if it's a valid configuration file, and if it's not, it will return a detailed error message, with the exact line and column where the error is.
+
+```bash
+# A configuration file is expected to be provided.
+aws-taggy config validate --config .aws-taggy-tag-compliance.yaml
+```
+
+### Run the compliance check
+
+The most relevant part of *AWS Taggy* is the compliance check. This is where the magic happens. You can run the compliance check for a given configuration file, and it will return a detailed report of the compliance of your resources.
+
+```bash
+aws-taggy compliance check --config .aws-taggy-tag-compliance.yaml
+```
+
+In the [examples](./docs/examples/) directory, you can find a sample configuration file, and a sample output of the compliance check, the terraform files to generate the resources used in those examples, and a `README.md` file that explain the scenario expressed in the example.
+
+
+
+
+
+
+
 ## 📄 License
 
 [MIT License](./LICENSE)
