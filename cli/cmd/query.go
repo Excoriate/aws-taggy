@@ -3,13 +3,14 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"os/exec"
 	"strings"
 
-	"github.com/Excoriate/aws-taggy/cli/internal/output"
 	"github.com/Excoriate/aws-taggy/cli/internal/tui"
 	"github.com/Excoriate/aws-taggy/pkg/configuration"
 	"github.com/Excoriate/aws-taggy/pkg/inspector"
 	"github.com/Excoriate/aws-taggy/pkg/o11y"
+	"github.com/Excoriate/aws-taggy/pkg/output"
 )
 
 // QueryCmd represents the query command and its subcommands
@@ -74,35 +75,65 @@ func (t *TagsCmd) Run() error {
 		return fmt.Errorf("failed to fetch resource details for ARN %s in service %s: %w", t.ARN, t.Service, err)
 	}
 
-	// Create output formatter
-	formatter := output.NewFormatter(t.Output)
-
-	if formatter.IsStructured() {
-		type TagsResult struct {
-			Resource string            `json:"resource" yaml:"resource"`
-			ARN      string            `json:"arn" yaml:"arn"`
-			Tags     map[string]string `json:"tags" yaml:"tags"`
-		}
-
-		result := TagsResult{
-			Resource: resource.ID,
-			ARN:      t.ARN,
-			Tags:     resource.Tags,
-		}
-
-		// If clipboard flag is set, copy to clipboard
-		if t.Clipboard {
-			if err := output.WriteToClipboard(result); err != nil {
-				return fmt.Errorf("failed to copy resource tags to clipboard for ARN %s: %w", t.ARN, err)
-			}
-			fmt.Println("✅ Resource tags copied to clipboard!")
-			return nil
-		}
-
-		return formatter.Output(result)
+	// Prepare output
+	type TagsResult struct {
+		Resource string            `json:"resource" yaml:"resource"`
+		ARN      string            `json:"arn" yaml:"arn"`
+		Tags     map[string]string `json:"tags" yaml:"tags"`
 	}
 
-	// Prepare table data
+	result := TagsResult{
+		Resource: resource.ID,
+		ARN:      t.ARN,
+		Tags:     resource.Tags,
+	}
+
+	// Normalize output format
+	outputFormat := strings.ToLower(t.Output)
+
+	// Create output formatter
+	var formatter output.Formatter
+	switch outputFormat {
+	case "json":
+		formatter = output.NewJSONFormatter(false)
+	case "yaml", "yml":
+		formatter = output.NewYAMLFormatter(false)
+	default:
+		formatter = output.NewTableFormatter([]string{"Key", "Value"})
+	}
+
+	// Prepare clipboard output
+	clipboardOutput := result
+
+	// If clipboard flag is set, copy to clipboard in YAML
+	if t.Clipboard {
+		yamlFormatter := output.NewYAMLFormatter(false)
+		clipboardContent, err := yamlFormatter.Format(clipboardOutput)
+		if err != nil {
+			return fmt.Errorf("failed to format clipboard output: %w", err)
+		}
+
+		// Use system clipboard
+		cmd := exec.Command("pbcopy")
+		cmd.Stdin = strings.NewReader(clipboardContent)
+		if err := cmd.Run(); err != nil {
+			return fmt.Errorf("failed to copy resource tags to clipboard for ARN %s: %w", t.ARN, err)
+		}
+
+		logger.Info("✅ Resource tags copied to clipboard!")
+	}
+
+	// Check if output should be structured
+	if outputFormat == "json" || outputFormat == "yaml" || outputFormat == "yml" {
+		formattedOutput, err := formatter.Format(result)
+		if err != nil {
+			return fmt.Errorf("failed to format output: %w", err)
+		}
+		fmt.Println(formattedOutput)
+		return nil
+	}
+
+	// Default table output
 	tableData := make([][]string, 0, len(resource.Tags))
 	for key, value := range resource.Tags {
 		tableData = append(tableData, []string{key, value})
@@ -119,11 +150,7 @@ func (t *TagsCmd) Run() error {
 		AutoWidth:       true,
 	}
 
-	if err := tui.RenderTable(tableOpts, tableData); err != nil {
-		return fmt.Errorf("failed to render tags table for ARN %s: %w", t.ARN, err)
-	}
-
-	return nil
+	return tui.RenderTable(tableOpts, tableData)
 }
 
 // Run implements the info query logic
@@ -159,20 +186,67 @@ func (i *InfoCmd) Run() error {
 		return fmt.Errorf("failed to fetch resource details for ARN %s in service %s: %w", i.ARN, i.Service, err)
 	}
 
-	// Create output formatter
-	formatter := output.NewFormatter(i.Output)
+	// Normalize output format
+	outputFormat := strings.ToLower(i.Output)
 
-	if formatter.IsStructured() {
-		// If clipboard flag is set, copy to clipboard
-		if i.Clipboard {
-			if err := output.WriteToClipboard(resource); err != nil {
-				return fmt.Errorf("failed to copy resource information to clipboard for ARN %s: %w", i.ARN, err)
-			}
-			fmt.Println("✅ Resource information copied to clipboard!")
-			return nil
+	// Prepare clipboard output
+	clipboardOutput := struct {
+		Service           string                 `json:"service" yaml:"service"`
+		Region            string                 `json:"region" yaml:"region"`
+		ResourceID        string                 `json:"resource_id" yaml:"resource_id"`
+		ResourceType      string                 `json:"resource_type" yaml:"resource_type"`
+		ARN               string                 `json:"arn" yaml:"arn"`
+		TagCount          int                    `json:"tag_count" yaml:"tag_count"`
+		Tags              map[string]string      `json:"tags" yaml:"tags"`
+		AdditionalDetails map[string]interface{} `json:"additional_details,omitempty" yaml:"additional_details,omitempty"`
+	}{
+		Service:           i.Service,
+		Region:            resource.Region,
+		ResourceID:        resource.ID,
+		ResourceType:      resource.Type,
+		ARN:               resource.Details.ARN,
+		TagCount:          len(resource.Tags),
+		Tags:              resource.Tags,
+		AdditionalDetails: resource.Details.Properties,
+	}
+
+	// Create output formatter
+	var formatter output.Formatter
+	switch outputFormat {
+	case "json":
+		formatter = output.NewJSONFormatter(false)
+	case "yaml", "yml":
+		formatter = output.NewYAMLFormatter(false)
+	default:
+		formatter = output.NewTableFormatter([]string{"Property", "Value"})
+	}
+
+	// If clipboard flag is set, copy to clipboard in YAML
+	if i.Clipboard {
+		yamlFormatter := output.NewYAMLFormatter(false)
+		clipboardContent, err := yamlFormatter.Format(clipboardOutput)
+		if err != nil {
+			return fmt.Errorf("failed to format clipboard output: %w", err)
 		}
 
-		return formatter.Output(resource)
+		// Use system clipboard
+		cmd := exec.Command("pbcopy")
+		cmd.Stdin = strings.NewReader(clipboardContent)
+		if err := cmd.Run(); err != nil {
+			return fmt.Errorf("failed to copy resource information to clipboard for ARN %s: %w", i.ARN, err)
+		}
+
+		logger.Info("✅ Resource information copied to clipboard!")
+	}
+
+	// Check if output should be structured
+	if outputFormat == "json" || outputFormat == "yaml" || outputFormat == "yml" {
+		formattedOutput, err := formatter.Format(clipboardOutput)
+		if err != nil {
+			return fmt.Errorf("failed to format output: %w", err)
+		}
+		fmt.Println(formattedOutput)
+		return nil
 	}
 
 	// Prepare table data for resource details
@@ -201,11 +275,7 @@ func (i *InfoCmd) Run() error {
 		AutoWidth:       true,
 	}
 
-	if err := tui.RenderTable(tableOpts, tableData); err != nil {
-		return fmt.Errorf("failed to render resource details table for ARN %s: %w", i.ARN, err)
-	}
-
-	return nil
+	return tui.RenderTable(tableOpts, tableData)
 }
 
 // Helper functions
