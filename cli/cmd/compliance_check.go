@@ -82,6 +82,7 @@ func (c *CheckCmd) Run() error {
 			},
 		},
 	}
+
 	output.PrintPlannedChecks(plannedChecks)
 
 	// Initialize taggy client
@@ -90,7 +91,7 @@ func (c *CheckCmd) Run() error {
 		return fmt.Errorf("failed to initialize taggy client with configuration %s: %w. Check the configuration and ensure all required parameters are set", c.Config, err)
 	}
 
-	// Initialize scanner manager
+	// Initialize inspector manager
 	inspectorMgr, err := inspector.NewInspectorManagerFromConfig(*client.Config())
 	if err != nil {
 		return fmt.Errorf("failed to create scanner manager from configuration: %w. Verify the AWS configuration and region settings", err)
