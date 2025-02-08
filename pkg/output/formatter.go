@@ -25,7 +25,6 @@ func (f *JSONFormatter) Format(data interface{}) (string, error) {
 
 	// Always use pretty printing by default
 	bytes, err = json.MarshalIndent(data, "", "  ")
-
 	if err != nil {
 		return "", fmt.Errorf("failed to format as JSON: %w", err)
 	}
